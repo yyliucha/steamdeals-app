@@ -71,7 +71,7 @@ fun ChangePasswordScreen(vm: AppViewModel, navController: NavHostController) {
                 toast(context, context.getString(R.string.cp_success))
                 if (mustChange && LoginFlowState.pendingMustChange) {
                     LoginFlowState.pendingMustChange = false
-                    finishLogin(vm, navController, scope)
+                    finishLogin(vm, navController)
                 } else {
                     navController.popBackStack()
                 }

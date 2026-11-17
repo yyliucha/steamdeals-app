@@ -131,7 +131,7 @@ fun LoginScreen(vm: AppViewModel, navController: NavHostController) {
                     LoginFlowState.pendingMustChange = true
                     navController.navigate(Routes.CHANGE_PASSWORD)
                 } else {
-                    finishLogin(vm, navController, scope)
+                    finishLogin(vm, navController)
                 }
             } catch (e: ApiException) {
                 errorText = when (e) {
@@ -276,13 +276,9 @@ fun LoginScreen(vm: AppViewModel, navController: NavHostController) {
     }
 }
 
-/** 登录成功收尾：有 pendingAction → 执行一次；回到原页面（nav 栈保存滚动/数据）。 */
-fun finishLogin(vm: AppViewModel, navController: NavHostController, scope: kotlinx.coroutines.CoroutineScope) {
-    scope.launch {
-        if (PendingActionHolder.current.value != null) {
-            vm.executePendingAction()
-        }
-    }
+/** 登录成功收尾：有 pendingAction → viewModelScope 执行一次（页面销毁不取消）；回原页面（nav 栈保存滚动/数据）。 */
+fun finishLogin(vm: AppViewModel, navController: NavHostController) {
+    vm.onLoginSuccessFinished()
     navController.popBackStack()
 }
 

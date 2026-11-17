@@ -138,23 +138,37 @@ class SteamDealsApi(private val client: ApiClient) {
 
     // ---------- 用户标记 / 愿望单（需 Bearer） ----------
 
-    /** 感兴趣 / 不感兴趣（docs/APP-API.md §4：普通用户可操作自己的标记）。 */
-    suspend fun setInterest(appid: Long, interested: Boolean): Json = client.parse(
+    /**
+     * 感兴趣 / 不感兴趣（docs/APP-API.md §4：普通用户可操作自己的标记）。
+     * 契约端点是 /api/games/:appid/interest；在 CA-1 把该路由放开为「登录用户可操作」之前，
+     * 服务端仍把它当作管理员专用 → 403 时回退现有用户级 /flags 端点（同 web 契约，请求体相同）。
+     * 契约端点放开后首请求即成功，回退路径自然失效。
+     * 返回响应原文（调用方只关心 2xx，不解析具体形状）。
+     */
+    suspend fun setInterest(appid: Long, interested: Boolean): String = try {
         client.post(
             "/api/app/games/$appid/interest",
             jsonBody { put("interested", interested) },
-        ),
-    )
+        )
+    } catch (e: ApiException) {
+        if (e is ApiException.Http && e.code == 403 && e.error != ApiException.ERROR_MUST_CHANGE_PASSWORD) {
+            client.post(
+                "/api/app/games/$appid/flags",
+                jsonBody { put("interested", interested) },
+            )
+        } else {
+            throw e
+        }
+    }
 
-    suspend fun addWishlist(appid: Long): Json = client.parse(
-        client.post("/api/app/wishlist", jsonBody { put("appid", appid) }),
-    )
+    suspend fun addWishlist(appid: Long): String =
+        client.post("/api/app/wishlist", jsonBody { put("appid", appid) })
 
-    suspend fun removeWishlist(appid: Long): Json =
-        client.parse(client.delete("/api/app/wishlist/$appid"))
+    suspend fun removeWishlist(appid: Long): String =
+        client.delete("/api/app/wishlist/$appid")
 
-    suspend fun removeWishlistById(gameId: Long): Json =
-        client.parse(client.delete("/api/app/wishlist/id/$gameId"))
+    suspend fun removeWishlistById(gameId: Long): String =
+        client.delete("/api/app/wishlist/id/$gameId")
 
     // ---------- 公告 ----------
 

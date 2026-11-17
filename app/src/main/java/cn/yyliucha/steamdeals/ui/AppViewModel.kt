@@ -90,6 +90,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val loginRequired: MutableSharedFlow<PendingAction?> = _loginRequired
 
     fun onLoginRequired(action: PendingAction?) {
+        // 新的一次登录门槛操作覆盖旧的（同一时间只保留最近一次，§4.2.2）
+        if (action != null) PendingActionHolder.set(action)
         // Token 失效也算未登录：清掉本地残留，避免重复弹
         viewModelScope.launch {
             if (session.value.token != null) {
@@ -125,6 +127,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _pendingActionResult.emit(action to ok)
     }
 
+    /** 登录成功收尾：在 viewModelScope 执行 pendingAction（页面销毁也不取消）。 */
+    fun onLoginSuccessFinished() {
+        viewModelScope.launch {
+            if (PendingActionHolder.current.value != null) {
+                executePendingAction()
+            }
+        }
+    }
+
     // ---------- 主题（登录用户同步 /api/prefs；游客仅本地跟随系统） ----------
     fun setTheme(mode: String) {
         viewModelScope.launch {
@@ -147,6 +158,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val updateManager = UpdateManager(getApplication(), api, locator.apiClient, store)
     private val _updateState = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
     val updateState: StateFlow<UpdateUiState> = _updateState
+    private var lastUpdateInfo: UpdateManager.UpdateInfo? = null
 
     /** 启动 / 回前台自动检查（24h 节流）；「我的 → 检查更新」手动检查（不节流）。 */
     fun checkUpdate(manual: Boolean) {
@@ -204,6 +216,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun startDownload(info: UpdateManager.UpdateInfo) {
+        lastUpdateInfo = info
         viewModelScope.launch {
             _updateState.value = UpdateUiState.Downloading(-1f)
             try {
@@ -213,6 +226,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 _updateState.value = UpdateUiState.Ready(info)
             } catch (e: Exception) {
+                android.util.Log.e("SteamDealsUpdate", "download failed", e)
                 val verifyFailed = e is IllegalStateException && e.message?.startsWith("sha256") == true
                 _updateState.value = if (verifyFailed) {
                     UpdateUiState.VerifyFailed(e.message ?: "校验失败")
@@ -233,17 +247,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onRetryDownload() {
         val current = _updateState.value
-        val info = when (current) {
-            is UpdateUiState.DownloadFailed -> null
-            is UpdateUiState.VerifyFailed -> null
-            is UpdateUiState.Ready -> current.info
-            else -> null
+        if (current is UpdateUiState.Ready) {
+            // 已下载完成：直接再走安装
+            onInstallNow()
+            return
         }
-        // 失败重试：回到可用状态让用户重新点「立即更新」
-        if (info != null) {
-            _updateState.value = UpdateUiState.Available(info, force = false)
-        } else {
-            _updateState.value = UpdateUiState.Idle
-        }
+        // 校验/下载失败：重新拉 latest 清单（避免复用陈旧 sha256），随后用户重新点「立即更新」
+        lastUpdateInfo = null
+        checkUpdate(manual = true)
     }
 }

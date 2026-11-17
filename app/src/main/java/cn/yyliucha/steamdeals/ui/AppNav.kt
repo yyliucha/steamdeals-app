@@ -95,6 +95,8 @@ fun AppRoot(vm: AppViewModel) {
                     TextButton(onClick = {
                         (context as? Activity)?.finishAffinity()
                         (context as? Activity)?.finish()
+                        // §3.4：点击后退出 App（finishAffinity/结束进程）
+                        android.os.Process.killProcess(android.os.Process.myPid())
                     }) {
                         Text(stringResource(R.string.ban_dialog_confirm))
                     }

@@ -11,3 +11,4 @@ captures/
 *.aab
 keystore.properties
 app/release/
+tools/mock-latest.json
