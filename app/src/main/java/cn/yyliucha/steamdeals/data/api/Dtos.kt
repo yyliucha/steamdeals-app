@@ -1,0 +1,258 @@
+package cn.yyliucha.steamdeals.data.api
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+// ---------------- 认证 ----------------
+
+@Serializable
+data class TokenResponse(
+    val token: String,
+    val expiresAt: String? = null,
+    val user: UserDto,
+)
+
+@Serializable
+data class UserDto(
+    val id: Long,
+    val username: String,
+    val role: String = "user",
+    val mustChangePassword: Boolean = false,
+)
+
+@Serializable
+data class CaptchaResponse(
+    val token: String,
+    val svg: String,
+    val expiresInSec: Int = 300,
+)
+
+@Serializable
+data class OkResponse(
+    val ok: Boolean = true,
+    val message: String? = null,
+)
+
+// ---------------- App 命名空间 ----------------
+
+@Serializable
+data class StatusResponse(
+    val banned: Boolean = false,
+    val type: String? = null,
+)
+
+@Serializable
+data class LatestResponse(
+    val version: String? = null,
+    val versionCode: Int? = null,
+    val minVersionCode: Int? = null,
+    val notes: List<String>? = null,
+    val apkPath: String? = null,
+    val sha256: String? = null,
+    val size: Long? = null,
+    val releasedAt: String? = null,
+)
+
+@Serializable
+data class SiteResponse(
+    val name: String = "SteamDeals",
+    val version: String? = null,
+    val appealEmail: String? = null,
+    val adultDisplay: String = "hide",
+    val registration: RegistrationInfo = RegistrationInfo(),
+)
+
+@Serializable
+data class RegistrationInfo(
+    val enabled: Boolean = true,
+    val smtpReady: Boolean = false,
+)
+
+// ---------------- 游戏 ----------------
+
+@Serializable
+data class OwnedByDto(
+    val steamId: String? = null,
+    val name: String? = null,
+)
+
+@Serializable
+data class OfferDto(
+    // regionOffers（详情报价）字段
+    val region: String? = null,
+    val currency: String? = null,
+    val platform_code: String? = null,
+    val platform_name: String? = null,
+    val price_cents: Long? = null,
+    val original_cents: Long? = null,
+    val discount_pct: Int? = null,
+    val buy_url: String? = null,
+    val last_seen_at: String? = null,
+    // all_offers（game 内嵌）字段
+    val platform: String? = null,
+    val price: Long? = null,
+)
+
+@Serializable
+data class GameDto(
+    val id: Long,
+    val steam_appid: Long? = null,
+    val name: String,
+    val name_en: String? = null,
+    val app_type: String? = null,
+    val heat: Double? = null,
+    val release_date: String? = null,
+    val interested: Boolean? = null,
+    val user_interested: Boolean? = null,
+    val user_owned: Boolean? = null,
+    val owned: Boolean = false,
+    val owned_by: List<OwnedByDto> = emptyList(),
+    val wishlisted: Boolean = false,
+    val wishlisted_by: List<OwnedByDto> = emptyList(),
+    val site_wishlisted: Boolean = false,
+    val blocked: Boolean = false,
+    val description: String? = null,
+    val developers: List<String> = emptyList(),
+    val publishers: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
+    val tags: List<String> = emptyList(),
+    val steam_status: String? = null,
+    val required_age: Int? = null,
+    val adult_flag: Boolean = false,
+    val mature_flag: Boolean = false,
+    val current_low: Long? = null,
+    val currency: String? = null,
+    val steam_price: Long? = null,
+    val current_original: Long? = null,
+    val discount: Int? = null,
+    val hist_low: Long? = null,
+    val prev_hist_low: Long? = null,
+    val day_count: Int? = null,
+    val last_seen_at: String? = null,
+    val low_platform_name: String? = null,
+    val low_platform: String? = null,
+    val all_offers: List<OfferDto> = emptyList(),
+)
+
+@Serializable
+data class GamesResponse(
+    val games: List<GameDto> = emptyList(),
+    val total: Int = 0,
+    val page: Int = 1,
+    val pageSize: Int = 20,
+    val pages: Int = 1,
+    val sort: String = "discount",
+    val owned: String = "exclude",
+    val interest: String = "all",
+    val q: String = "",
+    val type: String = "all",
+)
+
+@Serializable
+data class SeriesPoint(
+    val day: String,
+    val price_cents: Long? = null,
+    val currency: String? = null,
+)
+
+@Serializable
+data class DlcSummaryDto(
+    val total: Int = 0,
+    val synced: Boolean = false,
+    val filled: Int = 0,
+)
+
+@Serializable
+data class GameDetailResponse(
+    val game: GameDto,
+    val offers: List<OfferDto> = emptyList(),
+    val series: List<SeriesPoint> = emptyList(),
+    val dlc: DlcSummaryDto = DlcSummaryDto(),
+)
+
+@Serializable
+data class DlcItemDto(
+    val appid: Long,
+    val name: String,
+    val price_cents: Long? = null,
+    val original_cents: Long? = null,
+    val discount_pct: Int? = null,
+    val currency: String? = null,
+    val in_stock: Boolean = true,
+    val buy_url: String? = null,
+)
+
+@Serializable
+data class DlcListResponse(
+    val total: Int = 0,
+    val page: Int = 1,
+    val pageSize: Int = 10,
+    val synced: Boolean = false,
+    val items: List<DlcItemDto> = emptyList(),
+)
+
+@Serializable
+data class CountResponse(
+    val priced: Int = 0,
+    val catalog: Int = 0,
+)
+
+// ---------------- 用户 ----------------
+
+@Serializable
+data class PrefsDto(
+    val hide_uninterested: Boolean = false,
+    val only_discount: Boolean = false,
+    val sort: String? = "discount",
+    val tab: String? = "all",
+    val theme: String? = null,
+)
+
+@Serializable
+data class MeResponse(
+    val user: UserDto? = null,
+    val prefs: PrefsDto? = null,
+    val timezone: String? = null,
+)
+
+@Serializable
+data class PrefsSaveResponse(
+    val prefs: PrefsDto? = null,
+)
+
+// ---------------- 公告 ----------------
+
+@Serializable
+data class AnnouncementDto(
+    val id: Long,
+    val title: String,
+    val body: String? = null,
+    val level: String? = null,
+    val startsAt: String? = null,
+    val endsAt: String? = null,
+)
+
+@Serializable
+data class AnnouncementsResponse(
+    val announcements: List<AnnouncementDto> = emptyList(),
+    val readIds: List<Long> = emptyList(),
+)
+
+@Serializable
+data class ReadResponse(
+    val ok: Boolean = true,
+    val readIds: List<Long> = emptyList(),
+)
+
+// ---------------- 注册 ----------------
+
+@Serializable
+data class RegisterRequestResponse(
+    val ok: Boolean = true,
+    val hint: String? = null,
+)
+
+@Serializable
+data class RegisterVerifyResponse(
+    val user: UserDto? = null,
+)
