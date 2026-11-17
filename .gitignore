@@ -14,3 +14,4 @@ app/release/
 tools/mock-latest.json
 
 build-log-*.txt
+build-*.log
