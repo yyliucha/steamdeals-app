@@ -75,10 +75,14 @@ class ApiClient(
             val response = try {
                 client.newCall(req).execute()
             } catch (e: Exception) {
+                android.util.Log.e("SteamDealsNet", "$method $path -> NET ERR ${e.javaClass.simpleName}: ${e.message}")
                 throw ApiException.Network(e)
             }
             response.use { resp ->
                 val text = resp.body?.string().orEmpty()
+                if (resp.code !in 200..299) {
+                    android.util.Log.e("SteamDealsNet", "$method $path -> ${resp.code}: ${text.take(160)}")
+                }
                 when {
                     resp.code in 200..299 -> text
                     resp.code == 401 && parseError(text) == ApiException.ERROR_LOGIN_REQUIRED ->
