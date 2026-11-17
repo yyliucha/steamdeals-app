@@ -69,7 +69,8 @@ keytool -printcert -jarfile app\build\outputs\apk\release\app-release.apk | find
    （列表行自带 `discount/prev_hist_low/release_date/heat` 字段）；服务端 `/api/games` 补对应
    `filter` 参数后，只需替换 `HomeScreenState.applyDisplay`，App 无需改版。
 2. 「感兴趣/不感兴趣」按契约走 `POST /api/games/:appid/interest`（APP-API.md §4，普通用户可操作）；
-   站点侧需保证该路由对登录用户开放（而非管理员专用）。
+   该路由当前在站点侧仍是管理员专用（CA-1 收尾前）→ App 收到 403 时自动回退现有用户级
+   `/api/games/:appid/flags`（请求体相同）；契约端点放开后无需改 App。
 3. 内置更新下载用 OkHttp 流式 + 应用内进度条（BY 契约的 DownloadManager 是 TWA 实现细节；
    SHA-256 校验 / Wi-Fi 默认 / 系统安装确认 / 白名单主机均与契约一致）。
 4. 注册完成后回登录页预填用户名：App 的 Token 登录仍需再输一次图形验证码（服务端验证码必填）。

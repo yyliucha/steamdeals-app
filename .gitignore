@@ -12,3 +12,5 @@ captures/
 keystore.properties
 app/release/
 tools/mock-latest.json
+
+build-log-*.txt
