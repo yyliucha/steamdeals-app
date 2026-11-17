@@ -13,6 +13,7 @@ datastore = "1.1.1"
 browser = "1.8.0"
 coroutines = "1.9.0"
 androidsvg = "1.4"
+junit = "4.13.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -36,6 +37,7 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
 # 用 jar 坐标并在 coil-svg 上 exclude aar 变体（aar 的类 Kotlin 不可见，见 app/build.gradle.kts）
 androidsvg = { group = "com.caverock", name = "androidsvg", version.ref = "androidsvg" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -28,8 +28,8 @@ android {
         minSdk = 24
         targetSdk = 36
         // versionCode = major*10000 + minor*100 + patch（覆盖旧 TWA 21800，必须单调递增）
-        versionCode = 21900
-        versionName = "2.19.0"
+        versionCode = 22000
+        versionName = "2.20.0"
 
         buildConfigField("String", "API_BASE_URL", "\"$debugBaseUrl\"")
         buildConfigField("String", "FALLBACK_GH_RELEASE", "\"https://github.com/yyliucha/steamdeals/releases\"")
@@ -105,4 +105,5 @@ dependencies {
     implementation(libs.androidx.browser)
     implementation(libs.androidsvg)
     debugImplementation(libs.androidx.ui.tooling)
+    testImplementation(libs.junit)
 }

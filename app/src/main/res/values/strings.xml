@@ -83,15 +83,34 @@
     <string name="detail_metric_discount">折扣</string>
     <string name="detail_section_offers">各区服报价</string>
     <string name="detail_section_history">价格历史</string>
-    <string name="detail_section_dlc">DLC 内容</string>
     <string name="detail_no_offers">暂无报价</string>
     <string name="detail_no_history">暂无价格历史数据</string>
+    <string name="detail_no_history_in_range">暂无历史记录</string>
     <string name="detail_no_description">暂无游戏介绍。</string>
-    <string name="detail_dlc_count">共 %1$d 个 DLC</string>
-    <string name="detail_dlc_empty">暂无 DLC 数据</string>
-    <string name="detail_dlc_more">查看全部 DLC</string>
-    <string name="detail_dlc_none">该游戏没有 DLC</string>
+    <!-- CM-3：价格历史区间与指标（对齐 Web PRICE-HISTORY-REPORT §11） -->
+    <string name="detail_range_30">近 30 天</string>
+    <string name="detail_range_90">近 90 天</string>
+    <string name="detail_range_all">全部</string>
+    <string name="detail_metric_range_min">区间最低</string>
+    <string name="detail_metric_range_max">区间最高</string>
+    <string name="detail_metric_vs_hist">当前较史低</string>
+    <string name="detail_metric_days">记录天数</string>
+    <string name="detail_history_axis_low">%1$s · 史低线</string>
+    <string name="detail_history_axis_range">区间 %1$s → %2$s</string>
+    <string name="detail_history_low_cap">● 史低 %1$s · %2$s</string>
+    <string name="detail_history_foot">共 %1$d 条 · 每天取官方渠道最低价（不含 C2C）· 史低已标出</string>
+    <!-- CM-2：DLC 区块（对齐 Web GAME-DLC.md §3.4） -->
+    <string name="detail_dlc_title">DLC（共 %1$d 个）</string>
+    <string name="detail_dlc_note">Steam 不提供 DLC 拥有数据</string>
+    <string name="detail_dlc_prev">上一页</string>
+    <string name="detail_dlc_next">下一页</string>
+    <string name="detail_dlc_page">第 %1$d / %2$d 页</string>
+    <string name="detail_dlc_load_failed">DLC 信息加载失败，稍后重试</string>
     <string name="detail_dlc_out_of_stock">缺货</string>
+    <string name="detail_dlc_name_fallback">DLC #%1$d</string>
+    <!-- CM-4：复制游戏名 -->
+    <string name="detail_copy_name">复制游戏名</string>
+    <string name="toast_copied">已复制</string>
     <string name="detail_offer_region">区服</string>
     <string name="detail_offer_buy">购买</string>
     <string name="detail_days_count">%1$d 天价格记录</string>

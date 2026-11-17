@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -24,6 +25,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -64,9 +66,11 @@ import cn.yyliucha.steamdeals.ui.components.Badge
 import cn.yyliucha.steamdeals.ui.components.ErrorBox
 import cn.yyliucha.steamdeals.ui.components.LoadingBox
 import cn.yyliucha.steamdeals.ui.components.PriceHistoryChart
+import cn.yyliucha.steamdeals.ui.components.PriceHistoryModel
 import cn.yyliucha.steamdeals.ui.components.PriceText
 import cn.yyliucha.steamdeals.ui.components.formatPct
 import cn.yyliucha.steamdeals.ui.components.formatPrice
+import cn.yyliucha.steamdeals.ui.components.nameCopyText
 import cn.yyliucha.steamdeals.ui.components.openCustomTab
 import cn.yyliucha.steamdeals.ui.components.steamImageUrl
 import cn.yyliucha.steamdeals.ui.components.steamStoreUrl
@@ -85,8 +89,9 @@ class DetailScreenState(vm: AppViewModel, private val appScope: CoroutineScope, 
     var dlcItems by mutableStateOf<List<DlcItemDto>>(emptyList())
     var dlcTotal by mutableStateOf(0)
     var dlcSynced by mutableStateOf(false)
-    var dlcPage by mutableStateOf(0)
+    var dlcPage by mutableStateOf(1)
     var dlcLoading by mutableStateOf(false)
+    var dlcError by mutableStateOf(false)
 
     fun refresh() {
         appScope.launch {
@@ -106,33 +111,21 @@ class DetailScreenState(vm: AppViewModel, private val appScope: CoroutineScope, 
         }
     }
 
-    fun loadDlc() {
-        if (dlcLoading || dlcPage > 0) return
+    /** CM-2：DLC 分页 10 条/页（对齐 Web GAME-DLC.md §3.4），每次请求整页、不追加。 */
+    fun loadDlcPage(page: Int) {
+        if (dlcLoading) return
         appScope.launch {
             dlcLoading = true
+            dlcError = false
             try {
-                val resp = api.dlcList(appid, page = 1, pageSize = 10)
+                val resp = api.dlcList(appid, page = page, pageSize = 10)
                 dlcItems = resp.items
                 dlcTotal = resp.total
                 dlcSynced = resp.synced
-                dlcPage = resp.page
+                dlcPage = page
             } catch (_: Exception) {
-                // DLC 加载失败静默（详情主体不受影响）
-            } finally {
-                dlcLoading = false
-            }
-        }
-    }
-
-    fun loadMoreDlc() {
-        if (dlcLoading || dlcItems.size >= dlcTotal) return
-        appScope.launch {
-            dlcLoading = true
-            try {
-                val resp = api.dlcList(appid, page = dlcPage + 1, pageSize = 20)
-                dlcItems = (dlcItems + resp.items).distinctBy { it.appid }
-                dlcPage = resp.page
-            } catch (_: Exception) {
+                // DLC 加载失败不阻塞详情主体，区块内提示重试
+                dlcError = true
             } finally {
                 dlcLoading = false
             }
@@ -151,7 +144,7 @@ fun DetailScreen(vm: AppViewModel, navController: NavHostController, appid: Long
 
     LaunchedEffect(appid) {
         state.refresh()
-        state.loadDlc()
+        state.loadDlcPage(1)
     }
 
     // 登录后自动完成刚才的操作（pendingAction）：结果回到本页后按 appid 匹配刷新 + Toast
@@ -448,11 +441,21 @@ private fun DetailContent(
 
         item {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = game.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                // CM-4：标题旁复制按钮（中英文两行，缺一回退单行，对齐 Web AO 批 nameCopyText）
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = game.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = { copyGameNameToClipboard(context, game.name, game.name_en) }) {
+                        Icon(
+                            imageVector = Icons.Outlined.ContentCopy,
+                            contentDescription = stringResource(R.string.detail_copy_name),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 if (!game.name_en.isNullOrBlank() && game.name_en != game.name) {
                     Text(
                         text = game.name_en,
@@ -560,52 +563,74 @@ private fun DetailContent(
             }
         }
 
-        // 价格历史
+        // 价格历史（CM-3：区间 30/90/全部 + 指标条 + 史低参考线，对齐 Web）
         item {
             SectionCard(title = stringResource(R.string.detail_section_history)) {
-                if (detail.series.size < 2) {
+                if (detail.series.isEmpty()) {
                     Text(
                         text = stringResource(R.string.detail_no_history),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    PriceHistoryChart(points = detail.series)
+                    PriceHistorySection(game = game, series = detail.series)
                 }
             }
         }
 
-        // DLC
-        if (detail.dlc.total > 0 || detail.dlc.synced) {
+        // DLC（CM-2：仅 total>0 显示区块；分页 10 条/页；无 DLC/非 Steam 不显示）
+        if (detail.dlc.total > 0) {
             item {
-                SectionCard(title = stringResource(R.string.detail_section_dlc)) {
-                    if (state.dlcItems.isEmpty() && state.dlcLoading) {
-                        CircularProgressIndicator(modifier = Modifier.padding(8.dp))
-                    } else if (detail.dlc.total == 0) {
-                        Text(
-                            text = stringResource(R.string.detail_dlc_none),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        Text(
-                            text = context.getString(R.string.detail_dlc_count, detail.dlc.total),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 8.dp),
-                        )
-                        state.dlcItems.forEachIndexed { i, dlc ->
-                            DlcRow(dlc = dlc, context = context)
-                            if (i < state.dlcItems.lastIndex) {
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                SectionCard(title = context.getString(R.string.detail_dlc_title, detail.dlc.total)) {
+                    Text(
+                        text = stringResource(R.string.detail_dlc_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    when {
+                        state.dlcLoading && state.dlcItems.isEmpty() ->
+                            CircularProgressIndicator(modifier = Modifier.padding(8.dp))
+                        state.dlcError && state.dlcItems.isEmpty() ->
+                            Text(
+                                text = stringResource(R.string.detail_dlc_load_failed),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp),
+                            )
+                        else -> {
+                            state.dlcItems.forEachIndexed { i, dlc ->
+                                DlcRow(dlc = dlc, context = context)
+                                if (i < state.dlcItems.lastIndex) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                                }
                             }
-                        }
-                        if (state.dlcItems.size < detail.dlc.total) {
-                            TextButton(
-                                onClick = { state.loadMoreDlc() },
-                                modifier = Modifier.padding(top = 4.dp),
+                            val totalPages = ((detail.dlc.total + 9) / 10).coerceAtLeast(1)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(stringResource(R.string.detail_dlc_more))
+                                TextButton(
+                                    onClick = { state.loadDlcPage(state.dlcPage - 1) },
+                                    enabled = state.dlcPage > 1 && !state.dlcLoading,
+                                ) {
+                                    Text(stringResource(R.string.detail_dlc_prev))
+                                }
+                                Text(
+                                    text = context.getString(R.string.detail_dlc_page, state.dlcPage, totalPages),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                )
+                                TextButton(
+                                    onClick = { state.loadDlcPage(state.dlcPage + 1) },
+                                    enabled = state.dlcPage < totalPages && !state.dlcLoading,
+                                ) {
+                                    Text(stringResource(R.string.detail_dlc_next))
+                                }
                             }
                         }
                     }
@@ -642,6 +667,173 @@ private fun MetricCell(
             )
         }
     }
+}
+
+/** CM-4：复制中英文名到系统剪贴板并 Toast 提示（对齐 Web AO 批 nameCopyText 口径）。 */
+private fun copyGameNameToClipboard(context: android.content.Context, name: String?, nameEn: String?) {
+    val text = nameCopyText(name, nameEn)
+    if (text.isEmpty()) return
+    runCatching {
+        val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+            as android.content.ClipboardManager
+        cm.setPrimaryClip(android.content.ClipData.newPlainText(name, text))
+        toast(context, context.getString(R.string.toast_copied))
+    }
+}
+
+/**
+ * CM-3：价格历史 = 指标条（区间最低/最高/当前较史低/记录天数）+ 区间切换（近 30 天/近 90 天/全部，
+ * 默认 90）+ 趋势线（史低虚线参考线 + 全部史低日绿点）+ 底部说明。口径与 Web 完全一致
+ * （docs/PRICE-HISTORY-REPORT.md §11；计算全部走 PriceHistoryModel，可单测）。
+ */
+@Composable
+private fun PriceHistorySection(game: cn.yyliucha.steamdeals.data.api.GameDto, series: List<cn.yyliucha.steamdeals.data.api.SeriesPoint>) {
+    var range by remember(series) { mutableStateOf(PriceHistoryModel.DEFAULT_RANGE) }
+    val filtered = remember(series, range) { PriceHistoryModel.filterRange(series, range) }
+    val histLow = remember(series) { PriceHistoryModel.histLow(series) }
+    val lowDays = remember(series) { PriceHistoryModel.lowDays(series) }
+    val rangeMin = remember(filtered) { PriceHistoryModel.rangeMin(filtered) }
+    val rangeMax = remember(filtered) { PriceHistoryModel.rangeMax(filtered) }
+    val vsHist = PriceHistoryModel.curVsHist(game.current_low, histLow)
+
+    // 指标条（2x2，与 Web 四项一致）
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        MetricCell(
+            label = stringResource(R.string.detail_metric_range_min),
+            value = formatPrice(rangeMin, game.currency),
+            valueColor = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        MetricCell(
+            label = stringResource(R.string.detail_metric_range_max),
+            value = formatPrice(rangeMax, game.currency),
+            valueColor = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        MetricCell(
+            label = stringResource(R.string.detail_metric_vs_hist),
+            value = vsHist,
+            valueColor = if (vsHist == "已是史低") SuccessGreen else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        MetricCell(
+            label = stringResource(R.string.detail_metric_days),
+            value = filtered.size.toString(),
+            valueColor = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+    }
+
+    // 区间切换
+    Row(
+        modifier = Modifier.padding(top = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        val labels = mapOf(
+            PriceHistoryModel.RANGE_30 to stringResource(R.string.detail_range_30),
+            PriceHistoryModel.RANGE_90 to stringResource(R.string.detail_range_90),
+            PriceHistoryModel.RANGE_ALL to stringResource(R.string.detail_range_all),
+        )
+        PriceHistoryModel.RANGES.forEach { r ->
+            FilterChip(
+                selected = range == r,
+                onClick = { range = r },
+                label = { Text(labels[r].orEmpty()) },
+            )
+        }
+    }
+
+    if (filtered.isEmpty()) {
+        Text(
+            text = stringResource(R.string.detail_no_history_in_range),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 12.dp),
+        )
+        return
+    }
+
+    // 图上方轴标签行：左「¥区间最低 · 史低线」，右「区间 首日 → 末日」
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(
+                R.string.detail_history_axis_low,
+                formatPrice(rangeMin, game.currency),
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = SuccessGreen,
+        )
+        Text(
+            text = stringResource(
+                R.string.detail_history_axis_range,
+                filtered.first().day,
+                filtered.last().day,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    PriceHistoryChart(
+        points = filtered,
+        histLowCents = histLow,
+        modifier = Modifier.padding(top = 4.dp),
+    )
+
+    // 图注：首日 · ● 史低 ¥xxx · 最近史低日 · 末日
+    val lastLowDay = lowDays.lastOrNull()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = filtered.first().day,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (histLow != null && lastLowDay != null) {
+            Text(
+                text = stringResource(
+                    R.string.detail_history_low_cap,
+                    formatPrice(histLow, game.currency),
+                    lastLowDay,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = SuccessGreen,
+            )
+        }
+        Text(
+            text = filtered.last().day,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    // 底部说明
+    Text(
+        text = stringResource(R.string.detail_history_foot, filtered.size),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+    )
 }
 
 @Composable
@@ -751,7 +943,7 @@ private fun DlcRow(dlc: DlcItemDto, context: android.content.Context) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = dlc.name,
+                text = dlc.name.ifBlank { context.getString(R.string.detail_dlc_name_fallback, dlc.appid) },
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -776,6 +968,12 @@ private fun DlcRow(dlc: DlcItemDto, context: android.content.Context) {
                 color = MaterialTheme.colorScheme.error,
             )
         }
+        Text(
+            text = "Steam ↗",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 6.dp),
+        )
     }
 }
 

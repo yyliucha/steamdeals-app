@@ -1,7 +1,72 @@
 package cn.yyliucha.steamdeals.data.api
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
+
+/**
+ * CM-1（docs/APP-PARITY.md §3）：服务端 developers/publishers 历史数据形态混杂，统一解析成名称列表：
+ * - 纯字符串数组 `["Re-Logic"]`（老数据）→ 原样；
+ * - JSON 对象文本元素 `["{\"name\":\"Ubisoft Mainz\"}"]`（生产实测形态）→ 解析取 name；
+ * - 对象数组 `[{"name":…,"creator_clan_account_id":…}]`（契约形态）→ 取 name；
+ * - 单对象/单字符串兜底；空白元素过滤。
+ */
+object NameListSerializer : KSerializer<List<String>> {
+    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("cn.yyliucha.steamdeals.NameList", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): List<String> {
+        val el = (decoder as? JsonDecoder)?.decodeJsonElement() ?: return emptyList()
+        return namesFrom(el)
+    }
+
+    override fun serialize(encoder: Encoder, value: List<String>) {
+        (encoder as? JsonEncoder)?.encodeJsonElement(JsonArray(value.map { JsonPrimitive(it) }))
+    }
+
+    /** 纯函数：可从单测直接驱动（生产真实报文夹具）。 */
+    fun namesFrom(el: JsonElement): List<String> = when (el) {
+        is JsonArray -> el.mapNotNull { nameOf(it) }
+        else -> listOfNotNull(nameOf(el))
+    }
+
+    /** 单个元素 → 名称：对象取 name；JSON 对象文本解析取 name；普通字符串原样；其余丢弃。 */
+    fun nameOf(el: JsonElement): String? = when (el) {
+        is JsonPrimitive -> {
+            if (!el.isString) null
+            else {
+                val s = el.content
+                val t = s.trim()
+                when {
+                    t.isEmpty() -> null
+                    t.startsWith("{") -> runCatching {
+                        (json.parseToJsonElement(t) as? JsonObject)
+                            ?.get("name")?.jsonPrimitive?.contentOrNull
+                    }.getOrNull()?.takeIf { it.isNotBlank() }
+                    else -> s
+                }
+            }
+        }
+        is JsonObject -> el["name"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+        else -> null
+    }
+}
 
 // ---------------- 认证 ----------------
 
@@ -112,7 +177,9 @@ data class GameDto(
     val site_wishlisted: Boolean = false,
     val blocked: Boolean = false,
     val description: String? = null,
+    @Serializable(with = NameListSerializer::class)
     val developers: List<String> = emptyList(),
+    @Serializable(with = NameListSerializer::class)
     val publishers: List<String> = emptyList(),
     val genres: List<String> = emptyList(),
     val tags: List<String> = emptyList(),

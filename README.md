@@ -12,7 +12,7 @@ SteamDeals 原生 Android 客户端（Kotlin + Jetpack Compose），与站点 We
 | 站点根 | `https://sd.yyliucha.cn`（全部 API 走 `/api/app/*` 命名空间） |
 | minSdk / targetSdk / compileSdk | 24 / 36 / 36 |
 | 版本规则 | `versionCode = major*10000 + minor*100 + patch`，必须单调递增（旧 TWA 停在 21800） |
-| 当前版本 | 2.19.0 / 21900 |
+| 当前版本 | 2.20.0 / 22000 |
 | 技术栈 | Kotlin 2.0 + Compose（Material 3）+ Navigation Compose + OkHttp + kotlinx.serialization + Coil + DataStore；不引 Hilt/Retrofit（手写 ServiceLocator） |
 | 签名 | keystore **不入库**（本机 `C:\Users\Administrator\.steamdeals\android.keystore`，密码在同目录 `keystore-pass.txt`；指纹 SHA-256 `48:A3:0D:F9:…:7A:05`） |
 
@@ -25,6 +25,12 @@ SteamDeals 原生 Android 客户端（Kotlin + Jetpack Compose），与站点 We
 - **CA-3 内容**：首页（搜索入口、筛选 chips 全部/折扣/史低/免费/未发售、排序、加载更多）、搜索页
   （自动聚焦、本地历史）、详情页（封面/指标/描述/各区服报价/价格历史 Canvas 原生绘制/DLC 列表/
   Steam 与购买链接走 Custom Tabs）。
+- **CM 批补齐（2.20.0，站点仓库 TODO CM，规格 docs/APP-PARITY.md）**：
+  - 开发商/发行商名称解析修复（服务端历史数据有 JSON 对象文本形态，现在统一取 `name`，不再显示原始 JSON）；
+  - DLC 区块：详情底部「DLC（共 N 个）」、10 条/页翻页、价格/折扣/缺货、点行跳 Steam 商店、标注「Steam 不提供 DLC 拥有数据」；无 DLC/非 Steam 不显示；
+  - 价格历史：近 30 天/近 90 天/全部区间切换（默认 90）+ 指标条（区间最低/区间最高/当前较史低/记录天数）+
+    史低虚线参考线与全部史低日绿点，口径与 Web 一致（PRICE-HISTORY-REPORT §11）；
+  - 详情标题旁「复制游戏名」按钮（中英文两行，缺一回退单行，Toast 提示）。
 - **CA-4 账号**：愿望单（与 web 账号共享、已降价/史低筛选、移除）、我的（账号/通知/主题/检查更新/
   修改密码/关于/退出登录）、内置更新（启动 + 回前台 24h 节流 + 手动；Wi-Fi 默认；SHA-256 校验；
   系统安装确认；`minVersionCode` 强制更新）、启动封禁检查（`/api/app/status` 命中 → 「你已经被封禁」+
@@ -54,20 +60,23 @@ keytool -printcert -jarfile app\build\outputs\apk\release\app-release.apk | find
 
 | 关注点 | 落点 |
 |---|---|
-| 网络层 / 错误映射 / 下载校验 | `data/api/ApiClient.kt`、`ApiException.kt`、`SteamDealsApi.kt`（全部接口）、`Dtos.kt` |
+| 网络层 / 错误映射 / 下载校验 | `data/api/ApiClient.kt`、`ApiException.kt`、`SteamDealsApi.kt`（全部接口）、`Dtos.kt`（含 `NameListSerializer`） |
 | 本地持久化 | `data/store/SessionStore.kt`（DataStore） |
 | 会话 / pendingAction | `data/SessionManager.kt`、`data/PendingAction.kt` |
 | 全局状态 | `ui/AppViewModel.kt`（会话/主题/封禁检查/更新状态/登录门槛事件） |
 | 导航 + 4 Tab | `ui/AppNav.kt` |
 | 六屏 | `ui/home`、`ui/search`、`ui/detail`、`ui/wishlist`、`ui/me`、`ui/login`（+ `ui/register`/`ui/notifications`/`ui/password`/`ui/about`） |
+| 价格历史口径（CM-3） | `ui/components/PriceHistoryModel.kt`（区间/指标纯函数）、`PriceHistoryChart.kt`（Canvas 趋势线） |
+| 复制名口径（CM-4） | `ui/components/GameNameText.kt`（`nameCopyText`，与 Web utils/gameNames.js 同口径） |
+| 单元测试 | `app/src/test/`（`NameListSerializerTest` / `PriceHistoryModelTest` / `GameNameTextTest`，`gradlew testDebugUnitTest`） |
 | 内置更新 | `ui/update/UpdateManager.kt`、`UpdateDialogHost.kt`、`InstallResultReceiver.kt` |
 | 主题 | `ui/theme`（Material 3 + 品牌紫 `#8b82f5`、页面底色 `#0f1524`） |
 
-## 已知限制（v1，与站点仓库 CG 条目同步）
+## 已知限制（与站点仓库 CM 条目同步）
 
 1. 首页「折扣/史低/免费/未发售」筛选与「热度/发行时间/价格」排序目前按**已加载数据本地处理**
    （列表行自带 `discount/prev_hist_low/release_date/heat` 字段）；服务端 `/api/games` 补对应
-   `filter` 参数后，只需替换 `HomeScreenState.applyDisplay`，App 无需改版。
+   `filter` 参数后（CM-5 二期），只需替换 `HomeScreenState.applyDisplay`，App 无需改版。
 2. 「感兴趣/不感兴趣」按契约走 `POST /api/games/:appid/interest`（APP-API.md §4，普通用户可操作）；
    该路由当前在站点侧仍是管理员专用（CA-1 收尾前）→ App 收到 403 时自动回退现有用户级
    `/api/games/:appid/flags`（请求体相同）；契约端点放开后无需改 App。
@@ -75,6 +84,9 @@ keytool -printcert -jarfile app\build\outputs\apk\release\app-release.apk | find
    SHA-256 校验 / Wi-Fi 默认 / 系统安装确认 / 白名单主机均与契约一致）。
 4. 注册完成后回登录页预填用户名：App 的 Token 登录仍需再输一次图形验证码（服务端验证码必填）。
 5. 「已拥有」标记第一期未做（APP-API.md 未提供 App 端 owned 接口；web 有）。
+6. DLC 列表依赖站点 `game_dlc` 数据同步（随 steam-status/backfill 顺带写入）；数据未同步的游戏
+   详情不显示 DLC 区块（无 DLC/非 Steam 同规则，按 CM 规格）。
+7. 复制游戏名复制**中英文两行**（英文缺失/与中文相同回退单行），与 Web 详情弹窗口径一致。
 
 ## 本批不做
 
