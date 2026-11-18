@@ -222,6 +222,18 @@ fun UpdateDialogHost(vm: AppViewModel) {
             },
         )
 
+        // DK（站点 TODO DK B）：有新版但 apkPath 缺失——提示到站点 /app 页下载，不再笼统报「检查更新失败」
+        is UpdateUiState.Unavailable -> AlertDialog(
+            onDismissRequest = { vm.onDismissUpdate() },
+            title = { Text(stringResource(R.string.update_title, s.version)) },
+            text = { Text(stringResource(R.string.update_apk_unavailable)) },
+            confirmButton = {
+                TextButton(onClick = { vm.onDismissUpdate() }) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+        )
+
         UpdateUiState.Idle -> Unit
     }
 }

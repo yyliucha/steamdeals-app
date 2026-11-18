@@ -41,6 +41,8 @@ class UpdateManager(
     sealed class CheckResult {
         object None : CheckResult()
         data class Available(val info: UpdateInfo, val force: Boolean) : CheckResult()
+        /** DK（站点 TODO DK B）：有新版但下载地址暂不可用（apkPath 缺失/非法）——提示到站点 /app 页下载。 */
+        data class Unavailable(val version: String) : CheckResult()
         object Failed : CheckResult()
     }
 
@@ -51,6 +53,59 @@ class UpdateManager(
         val SITE_HOSTS = setOf("sd.yyliucha.cn")
         // 本机联调（模拟器 10.0.2.2 / 真机局域网 IP）仅 debug 放行
         val DEBUG_HOSTS = setOf("10.0.2.2", "127.0.0.1", "localhost")
+
+        /**
+         * DK 批（站点 TODO DK B）：检查结果决策抽成纯函数（JVM 单测直测）——
+         * apkPath 缺失/非法不再笼统 Failed，返回 Unavailable（提示到站点 /app 页下载）；
+         * 网络失败仍是 Failed（真「检查更新失败」只留给请求本身出错）。
+         */
+        fun decideUpdate(latest: LatestResponse, currentVersionCode: Int, ignoredVersionCode: Int): CheckResult {
+            val code = latest.versionCode ?: return CheckResult.None
+            if (code <= currentVersionCode) return CheckResult.None
+            val force = (latest.minVersionCode ?: 0) > currentVersionCode
+            if (!force && code == ignoredVersionCode) return CheckResult.None
+            val url = resolveApkUrl(latest.apkPath)
+                ?: return CheckResult.Unavailable(latest.version ?: "v$code")
+            val notes = latest.notes.orEmpty().ifEmpty { listOfNotNull(latest.version) }
+            return CheckResult.Available(
+                info = UpdateInfo(
+                    version = latest.version ?: "v$code",
+                    versionCode = code,
+                    minVersionCode = latest.minVersionCode,
+                    notes = notes,
+                    apkUrl = url,
+                    sha256 = latest.sha256,
+                    size = latest.size,
+                ),
+                force = force,
+            )
+        }
+
+        /**
+         * 站点优先、GitHub Release 兜底；只允许 https + 白名单主机（BY §4.3）。
+         * 用 JDK java.net.URI 解析（JVM 单测可直接跑，不依赖 android.net.Uri 的 mock）。
+         */
+        fun resolveApkUrl(apkPath: String?): String? {
+            val raw = apkPath?.trim().orEmpty()
+            if (raw.isEmpty()) return null
+            val url: String = if (raw.startsWith("http://") || raw.startsWith("https://")) {
+                raw
+            } else {
+                "https://sd.yyliucha.cn" + if (raw.startsWith("/")) raw else "/$raw"
+            }
+            val uri = try {
+                java.net.URI(url)
+            } catch (_: Exception) {
+                return null
+            }
+            val scheme = uri.scheme ?: return null
+            if (scheme != "https" && !(BuildConfig.DEBUG && scheme == "http")) return null
+            val host = uri.host ?: return null
+            val allowed = SITE_HOSTS + GITHUB_CDN_HOSTS + setOf(GITHUB_HOST)
+            val debugAllowed = BuildConfig.DEBUG && host in DEBUG_HOSTS
+            if (host !in allowed && !debugAllowed) return null
+            return url
+        }
     }
 
     /** 检查更新。manual=true 忽略 24h 节流且不写检查时间（BY §4.5）。 */
@@ -68,46 +123,7 @@ class UpdateManager(
         } catch (_: Exception) {
             return CheckResult.Failed
         }
-        val code = latest.versionCode ?: return CheckResult.None
-        if (code <= currentVersionCode) return CheckResult.None
-        val force = (latest.minVersionCode ?: 0) > currentVersionCode
-        if (!force && code == ignoredVersionCode) return CheckResult.None
-        val url = resolveApkUrl(latest.apkPath) ?: return CheckResult.Failed
-        val notes = latest.notes.orEmpty().ifEmpty { listOfNotNull(latest.version) }
-        return CheckResult.Available(
-            info = UpdateInfo(
-                version = latest.version ?: "v$code",
-                versionCode = code,
-                minVersionCode = latest.minVersionCode,
-                notes = notes,
-                apkUrl = url,
-                sha256 = latest.sha256,
-                size = latest.size,
-            ),
-            force = force,
-        )
-    }
-
-    /** 站点优先、GitHub Release 兜底；只允许 https + 白名单主机（BY §4.3）。 */
-    private fun resolveApkUrl(apkPath: String?): String? {
-        val raw = apkPath?.trim().orEmpty()
-        if (raw.isEmpty()) return null
-        val url: String = if (raw.startsWith("http://") || raw.startsWith("https://")) {
-            raw
-        } else {
-            "https://sd.yyliucha.cn" + if (raw.startsWith("/")) raw else "/$raw"
-        }
-        val uri = try {
-            Uri.parse(url)
-        } catch (_: Exception) {
-            return null
-        }
-        if (uri.scheme != "https" && !(BuildConfig.DEBUG && uri.scheme == "http")) return null
-        val host = uri.host ?: return null
-        val allowed = SITE_HOSTS + GITHUB_CDN_HOSTS + setOf(GITHUB_HOST)
-        val debugAllowed = BuildConfig.DEBUG && host in DEBUG_HOSTS
-        if (host !in allowed && !debugAllowed) return null
-        return url
+        return decideUpdate(latest, currentVersionCode, ignoredVersionCode)
     }
 
     fun isWifi(): Boolean {

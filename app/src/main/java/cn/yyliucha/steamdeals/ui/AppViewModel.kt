@@ -40,6 +40,8 @@ sealed interface UpdateUiState {
     data class Ready(val info: UpdateManager.UpdateInfo) : UpdateUiState
     data object Latest : UpdateUiState
     data object CheckFailed : UpdateUiState
+    /** DK（站点 TODO DK B）：有新版但下载地址暂不可用——提示到站点 /app 页下载，不算「检查失败」。 */
+    data class Unavailable(val version: String) : UpdateUiState
 }
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
@@ -199,6 +201,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     UpdateUiState.Available(result.info, result.force)
                 UpdateManager.CheckResult.None -> if (manual) UpdateUiState.Latest else UpdateUiState.Idle
                 UpdateManager.CheckResult.Failed -> if (manual) UpdateUiState.CheckFailed else UpdateUiState.Idle
+                is UpdateManager.CheckResult.Unavailable ->
+                    if (manual) UpdateUiState.Unavailable(result.version) else UpdateUiState.Idle
             }
         }
     }
