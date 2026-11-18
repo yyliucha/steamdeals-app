@@ -72,7 +72,7 @@ import cn.yyliucha.steamdeals.ui.components.formatPct
 import cn.yyliucha.steamdeals.ui.components.formatPrice
 import cn.yyliucha.steamdeals.ui.components.nameCopyText
 import cn.yyliucha.steamdeals.ui.components.openCustomTab
-import cn.yyliucha.steamdeals.ui.components.ownedByText
+import cn.yyliucha.steamdeals.ui.components.ownedByFullText
 import cn.yyliucha.steamdeals.ui.components.steamImageUrl
 import cn.yyliucha.steamdeals.ui.components.steamStoreUrl
 import cn.yyliucha.steamdeals.ui.components.toast
@@ -486,10 +486,10 @@ private fun DetailContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                // CV 批（docs/APP-SEARCH-OWNED.md 决策 3）：已拥有显示全部账号名
+                // CV 批（docs/APP-SEARCH-OWNED.md 决策 3）：已拥有显示**全部**账号名（与 Web 详情列全一致）
                 if (game.owned) {
                     Text(
-                        text = ownedByText(game.owned_by),
+                        text = ownedByFullText(game.owned_by),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.padding(top = 4.dp),

@@ -65,6 +65,15 @@ fun ownedByText(by: List<cn.yyliucha.steamdeals.data.api.OwnedByDto>): String {
     else "已拥有 · ${names.joinToString("、")}"
 }
 
+/** CV 批（决策 3）：详情页口径——**全部账号列全**（与 Web 详情一致），列表徽标才用前 2 +N。 */
+fun ownedByFullText(by: List<cn.yyliucha.steamdeals.data.api.OwnedByDto>): String {
+    val names = (by ?: emptyList()).mapNotNull { a ->
+        a.name?.takeIf { it.isNotBlank() } ?: a.steamId
+    }
+    if (names.isEmpty()) return "已拥有"
+    return "已拥有 · ${names.joinToString("、")}"
+}
+
 /** 站点图片代理：封面走服务端 /img/steam/<appid>/<size>（App 不直连 Steam CDN）。 */
 fun steamImageUrl(appid: Long?, size: String = "header"): String? =
     appid?.let { "${BuildConfig.API_BASE_URL.trimEnd('/')}/img/steam/$it/$size" }

@@ -1,6 +1,7 @@
 package cn.yyliucha.steamdeals
 
 import cn.yyliucha.steamdeals.data.api.OwnedByDto
+import cn.yyliucha.steamdeals.ui.components.ownedByFullText
 import cn.yyliucha.steamdeals.ui.components.ownedByText
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -51,5 +52,14 @@ class OwnedByTextTest {
     fun `全空显示已拥有`() {
         assertEquals("已拥有", ownedByText(emptyList()))
         assertEquals("已拥有", ownedByText(by(listOf(null to "  "))))
+    }
+
+    @Test
+    fun `详情列全——超过两个账号全部列出（CV 决策 3 详情口径）`() {
+        assertEquals(
+            "已拥有 · Alice 主号、Bob 小号、C 号、D 号",
+            ownedByFullText(by(listOf("1" to "Alice 主号", "2" to "Bob 小号", "3" to "C 号", "4" to "D 号"))),
+        )
+        assertEquals("已拥有", ownedByFullText(emptyList()))
     }
 }
