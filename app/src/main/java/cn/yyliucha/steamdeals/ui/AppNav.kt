@@ -38,7 +38,7 @@ import cn.yyliucha.steamdeals.ui.home.HomeScreen
 import cn.yyliucha.steamdeals.ui.login.LoginRequiredSheet
 import cn.yyliucha.steamdeals.ui.login.LoginScreen
 import cn.yyliucha.steamdeals.ui.me.MeScreen
-import cn.yyliucha.steamdeals.ui.notifications.AnnouncementsScreen
+import cn.yyliucha.steamdeals.ui.notifications.AnnouncementsOverlay
 import cn.yyliucha.steamdeals.ui.password.ChangePasswordScreen
 import cn.yyliucha.steamdeals.ui.register.RegisterScreen
 import cn.yyliucha.steamdeals.ui.search.SearchScreen
@@ -54,7 +54,6 @@ object Routes {
     const val LOGIN = "login"
     const val REGISTER = "register"
     const val CHANGE_PASSWORD = "changePassword"
-    const val ANNOUNCEMENTS = "announcements"
     const val ABOUT = "about"
 
     fun detail(appid: Long) = "detail/$appid"
@@ -154,7 +153,6 @@ fun AppRoot(vm: AppViewModel) {
             composable(Routes.LOGIN) { LoginScreen(vm, navController) }
             composable(Routes.REGISTER) { RegisterScreen(vm, navController) }
             composable(Routes.CHANGE_PASSWORD) { ChangePasswordScreen(vm, navController) }
-            composable(Routes.ANNOUNCEMENTS) { AnnouncementsScreen(vm, navController) }
             composable(Routes.ABOUT) { AboutScreen(navController) }
         }
     }
@@ -163,4 +161,6 @@ fun AppRoot(vm: AppViewModel) {
     LoginRequiredSheet(vm, navController)
     // 内置更新对话框宿主
     UpdateDialogHost(vm)
+    // 公告列表弹层（DC：首页铃铛 + 「我的 → 公告」共用入口）
+    AnnouncementsOverlay(vm)
 }

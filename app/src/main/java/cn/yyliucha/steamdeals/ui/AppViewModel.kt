@@ -53,12 +53,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val storePublic: cn.yyliucha.steamdeals.data.store.SessionStore = store
     val apiPublic: cn.yyliucha.steamdeals.data.api.SteamDealsApi = api
 
-    /** 登录成功落库（LoginScreen 用）。 */
+    /** 登录成功落库（LoginScreen 用）。DC：随后把游客本地已读公告合并到服务端并刷新口径。 */
     suspend fun onTokenLogin(response: cn.yyliucha.steamdeals.data.api.TokenResponse) {
         locator.sessionManager.onTokenLogin(response)
+        announcementsState.mergeLocalReadsToServer()
+        announcementsState.refresh()
     }
 
     val session: StateFlow<SessionData> = locator.sessionManager.session
+
+    /** 公告（DC）：角标 / 弹层 / 已读的全局状态，首页与「我的」共用。 */
+    val announcementsState = cn.yyliucha.steamdeals.ui.notifications.AnnouncementsState(
+        api = api,
+        store = store,
+        session = session,
+        scope = viewModelScope,
+    )
 
     val themeMode: StateFlow<String> = session.map { it.theme }.stateIn(
         viewModelScope, SharingStarted.Eagerly, "system",

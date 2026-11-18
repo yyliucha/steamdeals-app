@@ -72,6 +72,8 @@ fun MeScreen(vm: AppViewModel, navController: NavHostController) {
 
     val user = session.user
     val themeMode = session.theme
+    // DC：公告未读数（「我的 → 公告」入口展示，0 不显示）
+    val unreadAnnouncements by vm.announcementsState.unreadCount.collectAsState()
 
     Column(
         modifier = Modifier
@@ -115,7 +117,12 @@ fun MeScreen(vm: AppViewModel, navController: NavHostController) {
             MeRow(
                 icon = Icons.Filled.Notifications,
                 label = stringResource(R.string.me_notifications),
-                onClick = { navController.navigate(Routes.ANNOUNCEMENTS) },
+                value = if (unreadAnnouncements > 0) {
+                    context.getString(R.string.notif_unread_count, unreadAnnouncements)
+                } else {
+                    null
+                },
+                onClick = { vm.announcementsState.open() },
             )
             MeRow(
                 icon = Icons.Filled.DarkMode,

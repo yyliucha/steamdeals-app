@@ -31,10 +31,17 @@ SteamDeals 原生 Android 客户端（Kotlin + Jetpack Compose），与站点 We
   - 价格历史：近 30 天/近 90 天/全部区间切换（默认 90）+ 指标条（区间最低/区间最高/当前较史低/记录天数）+
     史低虚线参考线与全部史低日绿点，口径与 Web 一致（PRICE-HISTORY-REPORT §11）；
   - 详情标题旁「复制游戏名」按钮（中英文两行，缺一回退单行，Toast 提示）。
-- **CA-4 账号**：愿望单（与 web 账号共享、已降价/史低筛选、移除）、我的（账号/通知/主题/检查更新/
+- **CA-4 账号**：愿望单（与 web 账号共享、已降价/史低筛选、移除）、我的（账号/公告/主题/检查更新/
   修改密码/关于/退出登录）、内置更新（启动 + 回前台 24h 节流 + 手动；Wi-Fi 默认；SHA-256 校验；
   系统安装确认；`minVersionCode` 强制更新）、启动封禁检查（`/api/app/status` 命中 → 「你已经被封禁」+
   「已知晓」→ 退出 App）。
+- **DC 批（站点 TODO DC，CM-6 公告角标与公告列表，纯 App 端）**：
+  - 入口：首页右上角铃铛 + 「我的 → 公告」，共用同一公告列表弹层；
+  - 铃铛角标 = 未读公告数（所有 active 公告中不在 readIds 的；0 隐藏；点开列表逐条已读、角标递减）；
+  - 列表弹层：标题 / 级别色点（critical 红、warning 橙、info 蓝）/ 时间（站点时区 Asia/Shanghai）/ 已读态，
+    点开详情（进入即上报已读）、下拉刷新；
+  - 游客可看公告，已读存本地 DataStore（重启保留）；登录后本地已读自动合并到服务端
+    （`POST /api/app/announcements/read`，服务端幂等）。
 - **游客模式**：浏览不强制登录；点「感兴趣/不感兴趣/愿望单」弹「登录后才能使用该功能」；
   登录成功后回到原页面并**自动完成刚才的操作一次**（`pendingAction`，取消/失败清空、不循环）；
   「愿望单」「我的」未登录显示登录引导页。
@@ -68,7 +75,8 @@ keytool -printcert -jarfile app\build\outputs\apk\release\app-release.apk | find
 | 六屏 | `ui/home`、`ui/search`、`ui/detail`、`ui/wishlist`、`ui/me`、`ui/login`（+ `ui/register`/`ui/notifications`/`ui/password`/`ui/about`） |
 | 价格历史口径（CM-3） | `ui/components/PriceHistoryModel.kt`（区间/指标纯函数）、`PriceHistoryChart.kt`（Canvas 趋势线） |
 | 复制名口径（CM-4） | `ui/components/GameNameText.kt`（`nameCopyText`，与 Web utils/gameNames.js 同口径） |
-| 单元测试 | `app/src/test/`（`NameListSerializerTest` / `PriceHistoryModelTest` / `GameNameTextTest`，`gradlew testDebugUnitTest`） |
+| 公告（DC） | `ui/notifications/AnnouncementsModel.kt`（未读/合并/级别/时间纯函数）、`AnnouncementsState.kt`（全局状态）、`AnnouncementsOverlay.kt`（列表弹层 + 详情）；入口：`HomeScreen.kt` 铃铛、`MeScreen.kt`「公告」；登录合并：`AppViewModel.onTokenLogin` |
+| 单元测试 | `app/src/test/`（`NameListSerializerTest` / `PriceHistoryModelTest` / `GameNameTextTest` / `AnnouncementsModelTest`，`gradlew testDebugUnitTest`） |
 | 内置更新 | `ui/update/UpdateManager.kt`、`UpdateDialogHost.kt`、`InstallResultReceiver.kt` |
 | 主题 | `ui/theme`（Material 3 + 品牌紫 `#8b82f5`、页面底色 `#0f1524`） |
 

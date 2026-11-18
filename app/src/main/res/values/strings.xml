@@ -151,7 +151,7 @@
 
     <!-- 我的 -->
     <string name="me_login_guide">登录后管理你的账号</string>
-    <string name="me_notifications">通知</string>
+    <string name="me_notifications">公告</string>
     <string name="me_theme">主题</string>
     <string name="me_check_update">检查更新</string>
     <string name="me_change_password">修改密码</string>
@@ -182,11 +182,14 @@
     <string name="update_install_confirm">已下载完成，请在系统弹窗中确认安装</string>
     <string name="update_install_denied">需要允许安装未知来源应用，请在系统设置中开启</string>
 
-    <!-- 通知（公告） -->
-    <string name="notif_title">通知</string>
-    <string name="notif_empty">暂无通知</string>
+    <!-- 公告（DC，站点 TODO DC / APP-PARITY §65 CM-6） -->
+    <string name="notif_title">公告</string>
+    <string name="notif_empty">暂无公告</string>
     <string name="notif_unread">未读</string>
     <string name="notif_read">已读</string>
+    <string name="notif_unread_count">%1$d 条未读</string>
+    <string name="notif_detail">公告详情</string>
+    <string name="notif_no_body">暂无正文。</string>
 
     <!-- 修改密码 -->
     <string name="cp_title">修改密码</string>

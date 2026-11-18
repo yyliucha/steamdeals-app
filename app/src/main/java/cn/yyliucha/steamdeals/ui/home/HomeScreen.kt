@@ -14,10 +14,14 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -211,9 +215,12 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
     val sort by state.sort.collectAsState()
     val steamBound by state.steamBound.collectAsState()
     val listState = rememberLazyListState()
+    // DC：公告未读数（0 隐藏角标；首页铃铛 → 公告弹层）
+    val unreadAnnouncements by vm.announcementsState.unreadCount.collectAsState()
 
     LaunchedEffect(Unit) {
         if (state.allGames.value.isEmpty()) state.refresh()
+        if (vm.announcementsState.announcements.value.isEmpty()) vm.announcementsState.refresh()
     }
     // 登录态变化（登录/退出）时刷新「已拥有」chip 显隐依据；登录后进入首页也拉一次
     LaunchedEffect(session.isLoggedIn) {
@@ -223,14 +230,35 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // 顶部：品牌标题 + 搜索入口
+        // 顶部：品牌标题 + 公告铃铛 + 搜索入口
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(top = 12.dp, bottom = 4.dp),
+                )
+                // 公告铃铛：未读数角标（0 隐藏）→ 点开公告列表弹层
+                BadgedBox(
+                    badge = {
+                        if (unreadAnnouncements > 0) {
+                            Badge { Text(unreadAnnouncements.toString()) }
+                        }
+                    },
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    IconButton(onClick = { vm.announcementsState.open() }) {
+                        Icon(
+                            Icons.Filled.Notifications,
+                            contentDescription = stringResource(R.string.notif_title),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+            }
             // 搜索入口（点击跳搜索页，效果图 ②）
             Surface(
                 onClick = {
