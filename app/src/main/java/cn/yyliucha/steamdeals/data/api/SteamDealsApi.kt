@@ -112,6 +112,52 @@ class SteamDealsApi(private val client: ApiClient) {
         ),
     )
 
+    // ---------- 个人资料（CX，docs/USER-PROFILE-EDIT.md；与 Web 同一套接口） ----------
+
+    /** 保存昵称/简介/主题/邮件开关（theme：'light'/'dark'/null=跟随系统；只改自己的资料，服务端忽略其余字段）。 */
+    suspend fun meProfile(
+        displayName: String?,
+        bio: String?,
+        theme: String?,
+        emailAlerts: Boolean?,
+    ): ProfileSaveResponse = client.parse(
+        client.patch(ProfileRequests.PATH_PROFILE, ProfileRequests.profileBody(displayName, bio, theme, emailAlerts)),
+    )
+
+    /** 上传自定义头像：客户端裁剪 256×256 后的 dataUrl（≤512KB，JPG/PNG/WebP/GIF）。 */
+    suspend fun meAvatar(dataUrl: String): AvatarUploadResponse = client.parse(
+        client.post(ProfileRequests.PATH_AVATAR, jsonBody { put("dataUrl", dataUrl) }),
+    )
+
+    suspend fun meAvatarDelete(): AvatarUploadResponse = client.parse(client.delete(ProfileRequests.PATH_AVATAR))
+
+    /** 我的游戏库与统计（每账号一卡 + 5 项汇总）。 */
+    suspend fun meLibrary(): MeLibraryResponse = client.parse(client.get(ProfileRequests.PATH_LIBRARY))
+
+    /** 设为默认 Steam 账号（头像默认取该账号）。 */
+    suspend fun steamAccountDefault(steamId: String): AvatarUploadResponse = client.parse(
+        client.post(ProfileRequests.steamAccountPath(steamId, "default")),
+    )
+
+    /** 解绑（保留历史「曾拥有」）。 */
+    suspend fun steamAccountUnbind(steamId: String): OkResponse = client.parse(
+        client.delete(ProfileRequests.steamAccountPath(steamId)),
+    )
+
+    /** 账号库 / 愿望单条目（kind = library | wishlist；搜索 + 分页）。 */
+    suspend fun steamAccountItems(
+        steamId: String,
+        kind: String,
+        q: String,
+        page: Int,
+        pageSize: Int,
+    ): LibraryItemsResponse = client.parse(
+        client.get(
+            ProfileRequests.steamAccountPath(steamId, kind),
+            ProfileRequests.steamItemsQuery(q, page, pageSize),
+        ),
+    )
+
     // ---------- 游戏列表（公开） ----------
 
     suspend fun games(params: Map<String, String>): GamesResponse {

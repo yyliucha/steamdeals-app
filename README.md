@@ -35,6 +35,17 @@ SteamDeals 原生 Android 客户端（Kotlin + Jetpack Compose），与站点 We
   修改密码/关于/退出登录）、内置更新（启动 + 回前台 24h 节流 + 手动；Wi-Fi 默认；SHA-256 校验；
   系统安装确认；`minVersionCode` 强制更新）、启动封禁检查（`/api/app/status` 命中 → 「你已经被封禁」+
   「已知晓」→ 退出 App）。
+- **CX 批（站点 TODO CX，个人资料编辑，docs/USER-PROFILE-EDIT.md）**：
+  - 入口：「我的 → 编辑资料」（账号卡点击直达）；头像显示 `/api/avatar/:userId`（无头像回退首字）；
+  - 头像：相册选图 → 客户端裁剪 256×256 → dataUrl 上传（`POST /api/app/me/avatar`）；来源 chips
+    （各 Steam 账号 / 自定义）；移除；
+  - 资料：昵称（2–20 字）/ 简介（≤200 字）/ 主题（跟随系统/深/浅）/ 到价提醒邮件开关；
+    用户名/邮箱/角色只读；管理员昵称/简介可空；
+  - Steam 账号卡：每账号一张卡（头像/昵称/SteamID/已拥有/愿望单；Android 不显示最近同步）、
+    设为默认（头像默认取该账号）/ 解绑（二次确认，保留历史）/ ＋绑定新的（系统浏览器打开站点绑定流程，
+    返回 App 自动刷新）；
+  - 我的统计：已拥有合计 / 愿望单合计 / 本站愿望单 / 到价提醒 / 史低命中（5 项）；
+  - 查看已拥有/愿望单：底部弹层（tab + 搜索 + 分页，与 Web 对话框同结构）。
 - **DC 批（站点 TODO DC，CM-6 公告角标与公告列表，纯 App 端）**：
   - 入口：首页右上角铃铛 + 「我的 → 公告」，共用同一公告列表弹层；
   - 铃铛角标 = 未读公告数（所有 active 公告中不在 readIds 的；0 隐藏；点开列表逐条已读、角标递减）；
@@ -75,8 +86,7 @@ keytool -printcert -jarfile app\build\outputs\apk\release\app-release.apk | find
 | 六屏 | `ui/home`、`ui/search`、`ui/detail`、`ui/wishlist`、`ui/me`、`ui/login`（+ `ui/register`/`ui/notifications`/`ui/password`/`ui/about`） |
 | 价格历史口径（CM-3） | `ui/components/PriceHistoryModel.kt`（区间/指标纯函数）、`PriceHistoryChart.kt`（Canvas 趋势线） |
 | 复制名口径（CM-4） | `ui/components/GameNameText.kt`（`nameCopyText`，与 Web utils/gameNames.js 同口径） |
-| 公告（DC） | `ui/notifications/AnnouncementsModel.kt`（未读/合并/级别/时间纯函数）、`AnnouncementsState.kt`（全局状态）、`AnnouncementsOverlay.kt`（列表弹层 + 详情）；入口：`HomeScreen.kt` 铃铛、`MeScreen.kt`「公告」；登录合并：`AppViewModel.onTokenLogin` |
-| 单元测试 | `app/src/test/`（`NameListSerializerTest` / `PriceHistoryModelTest` / `GameNameTextTest` / `AnnouncementsModelTest`，`gradlew testDebugUnitTest`） |
+| 单元测试 | `app/src/test/`（`NameListSerializerTest` / `PriceHistoryModelTest` / `GameNameTextTest`，`gradlew testDebugUnitTest`） |
 | 内置更新 | `ui/update/UpdateManager.kt`、`UpdateDialogHost.kt`、`InstallResultReceiver.kt` |
 | 主题 | `ui/theme`（Material 3 + 品牌紫 `#8b82f5`、页面底色 `#0f1524`） |
 

@@ -60,6 +60,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         announcementsState.refresh()
     }
 
+    /** CX 批：资料保存后刷新本地会话用户（昵称/头像回显在「我的」页与资料页）。 */
+    suspend fun refreshUser() {
+        locator.sessionManager.refreshUser()
+    }
+
     val session: StateFlow<SessionData> = locator.sessionManager.session
 
     /** 公告（DC）：角标 / 弹层 / 已读的全局状态，首页与「我的」共用。 */

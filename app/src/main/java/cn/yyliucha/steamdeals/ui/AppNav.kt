@@ -39,6 +39,7 @@ import cn.yyliucha.steamdeals.ui.login.LoginRequiredSheet
 import cn.yyliucha.steamdeals.ui.login.LoginScreen
 import cn.yyliucha.steamdeals.ui.me.MeScreen
 import cn.yyliucha.steamdeals.ui.notifications.AnnouncementsOverlay
+import cn.yyliucha.steamdeals.ui.profile.ProfileEditScreen
 import cn.yyliucha.steamdeals.ui.password.ChangePasswordScreen
 import cn.yyliucha.steamdeals.ui.register.RegisterScreen
 import cn.yyliucha.steamdeals.ui.search.SearchScreen
@@ -55,6 +56,8 @@ object Routes {
     const val REGISTER = "register"
     const val CHANGE_PASSWORD = "changePassword"
     const val ABOUT = "about"
+    // CX 批（docs/USER-PROFILE-EDIT.md）：编辑资料页
+    const val PROFILE_EDIT = "profileEdit"
 
     fun detail(appid: Long) = "detail/$appid"
 
@@ -153,6 +156,7 @@ fun AppRoot(vm: AppViewModel) {
             composable(Routes.LOGIN) { LoginScreen(vm, navController) }
             composable(Routes.REGISTER) { RegisterScreen(vm, navController) }
             composable(Routes.CHANGE_PASSWORD) { ChangePasswordScreen(vm, navController) }
+            composable(Routes.PROFILE_EDIT) { ProfileEditScreen(vm, navController) }
             composable(Routes.ABOUT) { AboutScreen(navController) }
         }
     }

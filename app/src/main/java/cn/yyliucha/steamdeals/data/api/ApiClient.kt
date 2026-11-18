@@ -59,16 +59,19 @@ class ApiClient(
     suspend fun post(path: String, body: String? = null): String =
         raw("POST", path, emptyMap(), body)
 
+    suspend fun patch(path: String, body: String? = null): String =
+        raw("PATCH", path, emptyMap(), body)
+
     suspend fun delete(path: String): String =
         raw("DELETE", path, emptyMap(), null)
 
     suspend fun raw(method: String, path: String, query: Map<String, String?>, body: String?): String =
         withContext(Dispatchers.IO) {
             val requestBuilder = Request.Builder().url(url(path, query))
+            val media = "application/json; charset=utf-8".toMediaType()
             val req = when (method) {
-                "POST" -> requestBuilder.post(
-                    (body ?: "{}").toRequestBody("application/json; charset=utf-8".toMediaType()),
-                )
+                "POST" -> requestBuilder.post((body ?: "{}").toRequestBody(media))
+                "PATCH" -> requestBuilder.patch((body ?: "{}").toRequestBody(media))
                 "DELETE" -> requestBuilder.delete()
                 else -> requestBuilder.get()
             }.build()

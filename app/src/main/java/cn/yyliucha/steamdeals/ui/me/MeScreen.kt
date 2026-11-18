@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -38,7 +39,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -50,6 +53,7 @@ import cn.yyliucha.steamdeals.ui.components.Badge
 import cn.yyliucha.steamdeals.ui.components.toast
 import cn.yyliucha.steamdeals.ui.theme.BrandPurple
 import cn.yyliucha.steamdeals.ui.wishlist.LoginGuide
+import coil.compose.AsyncImage
 
 /**
  * 我的（效果图 ⑥）：账号信息、通知、主题（跟随系统/深/浅）、检查更新、修改密码、关于、退出登录。
@@ -80,23 +84,41 @@ fun MeScreen(vm: AppViewModel, navController: NavHostController) {
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
     ) {
-        // 账号卡片
+        // 账号卡片（CX 批：头像有则显示 /api/avatar，无则回退 Person 图标；点击进编辑资料）
         Surface(
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(16.dp)
+                .clickable { navController.navigate(Routes.PROFILE_EDIT) },
         ) {
             Row(
                 modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    Icons.Filled.Person,
-                    contentDescription = null,
-                    tint = BrandPurple,
-                    modifier = Modifier.size(44.dp),
+                val avatarUrl = cn.yyliucha.steamdeals.data.api.ProfileRequests.avatarUrl(
+                    cn.yyliucha.steamdeals.BuildConfig.API_BASE_URL,
+                    user?.id ?: 0,
+                    user?.avatarSource,
+                    user?.avatarUpdatedAt,
                 )
+                if (avatarUrl != null) {
+                    AsyncImage(
+                        model = avatarUrl,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Icon(
+                        Icons.Filled.Person,
+                        contentDescription = null,
+                        tint = BrandPurple,
+                        modifier = Modifier.size(44.dp),
+                    )
+                }
                 Column(modifier = Modifier.padding(start = 12.dp)) {
                     Text(
                         text = user?.username ?: "",

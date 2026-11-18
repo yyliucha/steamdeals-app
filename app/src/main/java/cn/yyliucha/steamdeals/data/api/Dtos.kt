@@ -83,6 +83,15 @@ data class UserDto(
     val username: String,
     val role: String = "user",
     val mustChangePassword: Boolean = false,
+    // CX 批（docs/USER-PROFILE-EDIT.md）：本人资料字段（Web /api/me 同口径，App /api/app/me 透传）
+    val email: String? = null,
+    val emailVerified: Boolean = false,
+    val displayName: String? = null,
+    val bio: String? = null,
+    val avatarSource: String? = null,
+    val avatarMime: String? = null,
+    val avatarUpdatedAt: String? = null,
+    val createdAt: String? = null,
 )
 
 @Serializable
@@ -273,6 +282,8 @@ data class PrefsDto(
     val sort: String? = "discount",
     val tab: String? = "all",
     val theme: String? = null,
+    // CX 批：到价提醒邮件开关（true=发邮件）
+    val email_alerts: Boolean = true,
 )
 
 @Serializable
@@ -288,6 +299,73 @@ data class MeResponse(
 data class PrefsSaveResponse(
     val prefs: PrefsDto? = null,
 )
+
+// ---------------- 个人资料（CX，docs/USER-PROFILE-EDIT.md） ----------------
+
+@Serializable
+data class ProfileSaveResponse(
+    val user: UserDto? = null,
+    val prefs: PrefsDto? = null,
+)
+
+@Serializable
+data class AvatarUploadResponse(
+    val avatarSource: String? = null,
+    val avatarMime: String? = null,
+    val avatarUpdatedAt: String? = null,
+)
+
+@Serializable
+data class SteamAccountDto(
+    val steamId: String,
+    val name: String? = null,
+    val avatar: String? = null,
+    val owned: Int = 0,
+    val wishlist: Int = 0,
+    val lastSyncedAt: String? = null,
+    val boundAt: String? = null,
+    val isDefault: Boolean = false,
+)
+
+@Serializable
+data class LibraryStatsDto(
+    val ownedTotal: Int = 0,
+    val wishlistTotal: Int = 0,
+    val siteWishlist: Int = 0,
+    val alerts: Int = 0,
+    val histLowHits: Int = 0,
+)
+
+@Serializable
+data class MeLibraryResponse(
+    val accounts: List<SteamAccountDto> = emptyList(),
+    val stats: LibraryStatsDto = LibraryStatsDto(),
+)
+
+@Serializable
+data class LibraryItemDto(
+    val appid: Long = 0,
+    val name: String? = null,
+    val name_en: String? = null,
+    val playtime_minutes: Int? = null,
+    val last_played_at: String? = null,
+    val synced_at: String? = null,
+    val in_db: Boolean = false,
+    val current_low: Long? = null,
+    val hist_low: Long? = null,
+)
+
+/** 库 / 愿望单条目响应：library 端点回 games、wishlist 端点回 items（Web 契约形状差异，App 统一取 list）。 */
+@Serializable
+data class LibraryItemsResponse(
+    val games: List<LibraryItemDto>? = null,
+    val items: List<LibraryItemDto>? = null,
+    val total: Int = 0,
+    val page: Int = 1,
+    val pageSize: Int = 10,
+) {
+    val list: List<LibraryItemDto> get() = games ?: items ?: emptyList()
+}
 
 // ---------------- 公告 ----------------
 
