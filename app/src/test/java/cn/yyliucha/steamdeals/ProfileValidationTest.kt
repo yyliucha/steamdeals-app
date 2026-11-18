@@ -47,4 +47,26 @@ class ProfileValidationTest {
         assertNull(ProfileValidation.bioError("", isAdmin = true))
         assertEquals("个人简介不能超过 200 字", ProfileValidation.bioError("字".repeat(201), isAdmin = true))
     }
+
+    // ---- CZ 批（docs/EMAIL-CHANGE.md）：换邮箱表单校验 ----
+
+    @Test
+    fun `换邮箱新邮箱格式与服务端同口径`() {
+        assertNull(ProfileValidation.emailChangeEmailError("new-mail@example.com"))
+        assertNull("首尾空白裁剪", ProfileValidation.emailChangeEmailError("  User@Example.COM  "))
+        assertEquals("请输入新邮箱", ProfileValidation.emailChangeEmailError(""))
+        assertEquals("请输入新邮箱", ProfileValidation.emailChangeEmailError("   "))
+        assertEquals("邮箱格式不正确", ProfileValidation.emailChangeEmailError("not-an-email"))
+        assertEquals("邮箱格式不正确", ProfileValidation.emailChangeEmailError("a@b"))
+    }
+
+    @Test
+    fun `换邮箱验证码必须 6 位数字`() {
+        assertNull(ProfileValidation.emailChangeCodeError("123456"))
+        assertNull("首尾空白裁剪", ProfileValidation.emailChangeCodeError(" 842193 "))
+        assertEquals("请输入 6 位验证码", ProfileValidation.emailChangeCodeError(""))
+        assertEquals("请输入 6 位验证码", ProfileValidation.emailChangeCodeError("12345"))
+        assertEquals("请输入 6 位验证码", ProfileValidation.emailChangeCodeError("1234567"))
+        assertEquals("请输入 6 位验证码", ProfileValidation.emailChangeCodeError("abcdef"))
+    }
 }

@@ -76,6 +76,7 @@ import cn.yyliucha.steamdeals.data.api.LibraryStatsDto
 import cn.yyliucha.steamdeals.data.api.ProfileRequests
 import cn.yyliucha.steamdeals.data.api.SteamAccountDto
 import cn.yyliucha.steamdeals.ui.AppViewModel
+import cn.yyliucha.steamdeals.ui.Routes
 import cn.yyliucha.steamdeals.ui.components.Badge
 import cn.yyliucha.steamdeals.ui.components.LoadingBox
 import cn.yyliucha.steamdeals.ui.components.formatPrice
@@ -88,6 +89,7 @@ import cn.yyliucha.steamdeals.ui.theme.SuccessGreen
 import coil.compose.AsyncImage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -324,6 +326,108 @@ class ProfileEditState(
     }
 
     val sheetPages: Int get() = maxOf(1, (sheetTotal.intValue + sheetPageSize - 1) / sheetPageSize)
+
+    // ---- 更换登录邮箱（CZ，docs/EMAIL-CHANGE.md）：底部弹层两步——1 验证新邮箱 → 2 完成 ----
+    val emailSheetOpen = MutableStateFlow(false)
+    val emailNew = MutableStateFlow("")
+    val emailCode = MutableStateFlow("")
+    val emailStep = MutableStateFlow(1)
+    val emailSending = MutableStateFlow(false)
+    val emailVerifying = MutableStateFlow(false)
+    val emailSentTo = MutableStateFlow("")
+    val emailCountdown = MutableStateFlow(0) // 重新发送倒计时（秒）
+    val emailError = MutableStateFlow<String?>(null)
+
+    fun openEmailSheet() {
+        emailNew.value = ""
+        emailCode.value = ""
+        emailStep.value = 1
+        emailSentTo.value = ""
+        emailCountdown.value = 0
+        emailError.value = null
+        emailSheetOpen.value = true
+    }
+
+    fun closeEmailSheet() {
+        emailSheetOpen.value = false
+        emailCountdown.value = 0
+    }
+
+    fun tickEmailCountdown() {
+        if (emailCountdown.value > 0) emailCountdown.value -= 1
+    }
+
+    /** 发送验证码到新邮箱（服务端不泄露占用）；成功后开始 60 秒重新发送倒计时。 */
+    fun sendEmailCode() {
+        val newEmail = emailNew.value.trim()
+        ProfileValidation.emailChangeEmailError(newEmail)?.let {
+            emailError.value = it
+            return
+        }
+        appScope.launch {
+            emailSending.value = true
+            emailError.value = null
+            try {
+                api.emailChangeRequest(newEmail)
+                emailSentTo.value = newEmail
+                emailCountdown.value = 60
+            } catch (e: ApiException) {
+                emailError.value = when (e) {
+                    is ApiException.Http -> e.error ?: "发送失败，请稍后再试"
+                    is ApiException.LoginRequired -> {
+                        vm.onLoginRequired(null)
+                        "请先登录"
+                    }
+                    else -> "发送失败，请稍后再试"
+                }
+            } finally {
+                emailSending.value = false
+            }
+        }
+    }
+
+    /** 确认更换：验证码通过才提示占用（409）；成功 → 服务端已删全部会话，清本地 token 并跳登录。 */
+    fun confirmEmailChange(onSuccess: () -> Unit) {
+        val newEmail = emailNew.value.trim()
+        val code = emailCode.value.trim()
+        ProfileValidation.emailChangeEmailError(newEmail)?.let {
+            emailError.value = it
+            return
+        }
+        ProfileValidation.emailChangeCodeError(code)?.let {
+            emailError.value = it
+            return
+        }
+        appScope.launch {
+            emailVerifying.value = true
+            emailError.value = null
+            try {
+                val resp = api.emailChangeVerify(newEmail, code)
+                if (!resp.ok) {
+                    emailError.value = resp.message ?: "更换失败，请稍后再试"
+                    return@launch
+                }
+                // 成功：服务端已删除该用户全部会话（含当前 token）。logout() 里的远端撤销会失败并被吞，
+                // 本地照常清空；随后跳登录页用新邮箱重新登录。
+                emailStep.value = 2
+                vm.logout()
+                toast(vm.getApplication(), "邮箱已更新，请用新邮箱重新登录")
+                emailSheetOpen.value = false
+                onSuccess()
+            } catch (e: ApiException) {
+                emailError.value = when (e) {
+                    is ApiException.Http -> e.error ?: "更换失败，请稍后再试"
+                    is ApiException.LoginRequired -> {
+                        vm.onLoginRequired(null)
+                        "请先登录"
+                    }
+                    else -> "更换失败，请稍后再试"
+                }
+            } finally {
+                emailVerifying.value = false
+            }
+        }
+    }
 }
 
 /**
@@ -526,9 +630,31 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
                         ReadonlyValue("${me?.username ?: "—"}  🔒 ${stringResource(R.string.profile_readonly)}")
                     }
                     FieldRow(label = stringResource(R.string.register_email)) {
-                        ReadonlyValue(
-                            if (me?.email.isNullOrBlank()) "—" else "${me?.email}  🔒",
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = me?.email ?: "—",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = if (me?.emailVerified == true) stringResource(R.string.profile_email_verified)
+                                    else stringResource(R.string.profile_email_unverified),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (me?.emailVerified == true) SuccessGreen
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            // CZ 批：更换邮箱入口（未验证邮箱也可以换，换完变已验证）
+                            OutlinedButton(onClick = { state.openEmailSheet() }) {
+                                Text(stringResource(R.string.profile_change_email))
+                            }
+                        }
                     }
                 }
 
@@ -673,6 +799,13 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
 
     // ---- 底部弹层：查看已拥有 / 愿望单（Android 规格：同 Web 结构，搜索 + 分页） ----
     LibrarySheet(state)
+
+    // ---- 底部弹层：更换登录邮箱（CZ，两步：验证新邮箱 → 完成；成功清 token 跳登录） ----
+    EmailChangeSheet(state, onSuccess = {
+        navController.navigate(Routes.LOGIN) {
+            popUpTo(0) { inclusive = true }
+        }
+    })
 
     // ---- 主题选择 ----
     if (themeDialog) {
@@ -999,6 +1132,214 @@ private fun StatCell(label: String, value: String) {
             text = value,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+/**
+ * 更换登录邮箱底部弹层（CZ，docs/EMAIL-CHANGE.md；对齐 docs/design/email-change-android-2026-11-18.html）：
+ * 步骤指示（1 验证新邮箱 → 2 完成）+ 警告条 + 当前邮箱只读 + 新邮箱输入/发送验证码（60s 重发倒计时）+
+ * 验证码输入 + 确认更换/取消。成功后清 token 跳登录（onSuccess 由调用方导航到登录页）。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EmailChangeSheet(state: ProfileEditState, onSuccess: () -> Unit) {
+    val open by state.emailSheetOpen.collectAsState()
+    if (!open) return
+    val step by state.emailStep.collectAsState()
+    val newEmail by state.emailNew.collectAsState()
+    val code by state.emailCode.collectAsState()
+    val sending by state.emailSending.collectAsState()
+    val verifying by state.emailVerifying.collectAsState()
+    val sentTo by state.emailSentTo.collectAsState()
+    val countdown by state.emailCountdown.collectAsState()
+    val emailError by state.emailError.collectAsState()
+    val me by state.user.collectAsState()
+
+    // 重新发送倒计时：每秒 tick 一次
+    LaunchedEffect(countdown) {
+        if (countdown > 0) {
+            delay(1000)
+            state.tickEmailCountdown()
+        }
+    }
+
+    ModalBottomSheet(onDismissRequest = { state.closeEmailSheet() }) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 18.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Text(
+                text = stringResource(R.string.email_change_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = stringResource(R.string.email_change_sub),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+
+            // 步骤指示：1 验证新邮箱 —— 2 完成
+            Row(
+                modifier = Modifier.padding(top = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StepDot(text = "1", active = true)
+                Text(
+                    text = stringResource(R.string.email_change_step1),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 6.dp),
+                )
+                Text(" — ", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                StepDot(text = "2", active = step >= 2)
+                Text(
+                    text = stringResource(R.string.email_change_step2),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 6.dp),
+                )
+            }
+
+            // 警告条（对齐 demo 文案）
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFFFF6E6),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.email_change_warn),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF7A5312),
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
+                )
+            }
+
+            // 当前邮箱（只读）
+            FieldRow(label = stringResource(R.string.email_change_current)) {
+                ReadonlyValue(me?.email ?: "—")
+            }
+
+            // 新邮箱 + 发送验证码
+            FieldRow(label = stringResource(R.string.email_change_new)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newEmail,
+                        onValueChange = { state.emailNew.value = it; state.emailError.value = null },
+                        singleLine = true,
+                        enabled = !sending && !verifying,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Email,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedButton(
+                        onClick = { state.sendEmailCode() },
+                        enabled = !sending && !verifying && countdown == 0,
+                        modifier = Modifier.padding(start = 8.dp),
+                    ) {
+                        Text(if (sending) "…" else stringResource(R.string.email_change_send))
+                    }
+                }
+                Text(
+                    text = stringResource(R.string.email_change_hint_send),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 3.dp),
+                )
+            }
+
+            // 验证码 + 重新发送
+            FieldRow(label = stringResource(R.string.email_change_code)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = code,
+                        onValueChange = {
+                            if (it.length <= 6 && it.all { c -> c.isDigit() }) {
+                                state.emailCode.value = it
+                                state.emailError.value = null
+                            }
+                        },
+                        singleLine = true,
+                        enabled = !sending && !verifying,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedButton(
+                        onClick = { state.sendEmailCode() },
+                        enabled = !sending && !verifying && countdown > 0,
+                        modifier = Modifier.padding(start = 8.dp),
+                    ) {
+                        Text(
+                            if (countdown > 0) stringResource(R.string.email_change_resend, countdown)
+                            else stringResource(R.string.email_change_send),
+                        )
+                    }
+                }
+                if (sentTo.isNotBlank()) {
+                    Text(
+                        text = stringResource(R.string.email_change_hint_code, sentTo),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 3.dp),
+                    )
+                }
+            }
+
+            // 错误提示（发送/校验/占用 409/频控 429 文案来自服务端）
+            if (emailError != null) {
+                Text(
+                    text = emailError.orEmpty(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = DangerRed,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+
+            // 确认更换 / 取消（对齐 demo：primary 全宽 + ghost）
+            Button(
+                onClick = { state.confirmEmailChange(onSuccess) },
+                enabled = !sending && !verifying,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandPurple),
+            ) {
+                Text(if (verifying) "…" else stringResource(R.string.email_change_confirm))
+            }
+            TextButton(
+                onClick = { state.closeEmailSheet() },
+                enabled = !sending && !verifying,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 14.dp),
+            ) {
+                Text(stringResource(R.string.email_change_cancel))
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepDot(text: String, active: Boolean) {
+    Box(
+        modifier = Modifier
+            .size(20.dp)
+            .clip(CircleShape)
+            .background(if (active) BrandPurple else MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (active) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

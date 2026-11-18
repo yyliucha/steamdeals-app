@@ -158,6 +158,18 @@ class SteamDealsApi(private val client: ApiClient) {
         ),
     )
 
+    // ---------- 更换登录邮箱（CZ，docs/EMAIL-CHANGE.md；与 Web /api/me/email/* 同一套契约） ----------
+
+    /** 发验证码到新邮箱；邮箱格式/24h 频控/发码限流失败以 400/429 ApiException 抛出（服务端不泄露占用）。 */
+    suspend fun emailChangeRequest(newEmail: String): EmailChangeRequestResponse = client.parse(
+        client.post(ProfileRequests.PATH_EMAIL_REQUEST, ProfileRequests.emailChangeRequestBody(newEmail)),
+    )
+
+    /** 验证码校验：通过后服务端才提示占用（409）；成功 → 服务端已删全部会话，调用方必须清本地 token 并跳登录。 */
+    suspend fun emailChangeVerify(newEmail: String, code: String): EmailChangeVerifyResponse = client.parse(
+        client.post(ProfileRequests.PATH_EMAIL_VERIFY, ProfileRequests.emailChangeVerifyBody(newEmail, code)),
+    )
+
     // ---------- 游戏列表（公开） ----------
 
     suspend fun games(params: Map<String, String>): GamesResponse {

@@ -207,6 +207,26 @@
     <string name="profile_sheet_search_go">搜索</string>
     <string name="profile_sheet_total">共 %1$d 款</string>
     <string name="profile_sheet_page">第 %1$d/%2$d 页</string>
+
+    <!-- 更换登录邮箱（CZ，docs/EMAIL-CHANGE.md） -->
+    <string name="profile_change_email">更换邮箱</string>
+    <string name="email_change_title">更换登录邮箱</string>
+    <string name="email_change_sub">验证新邮箱后生效</string>
+    <string name="email_change_step1">验证新邮箱</string>
+    <string name="email_change_step2">完成</string>
+    <string name="email_change_warn">更换成功后所有设备会退出登录，需要用新邮箱重新登录；旧邮箱会收到安全通知。</string>
+    <string name="email_change_current">当前邮箱</string>
+    <string name="email_change_new">新邮箱</string>
+    <string name="email_change_send">发送验证码</string>
+    <string name="email_change_resend">重新发送（%1$ds）</string>
+    <string name="email_change_code">验证码</string>
+    <string name="email_change_hint_send">验证码 10 分钟内有效 · 每天最多更换 1 次</string>
+    <string name="email_change_hint_code">已发送到 %1$s · 5 次尝试机会</string>
+    <string name="email_change_confirm">确认更换</string>
+    <string name="email_change_cancel">取消</string>
+    <string name="email_change_done">邮箱已更新，请用新邮箱重新登录</string>
+    <string name="profile_email_verified">已验证</string>
+    <string name="profile_email_unverified">未验证</string>
     <string name="profile_sheet_prev">上一页</string>
     <string name="profile_sheet_next">下一页</string>
 

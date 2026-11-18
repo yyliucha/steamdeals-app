@@ -62,4 +62,23 @@ class ProfileRequestsTest {
             ProfileRequests.avatarUrl("https://sd.yyliucha.cn/", 7, "steam:76561198000000001", null),
         )
     }
+
+    // ---- CZ 批（docs/EMAIL-CHANGE.md）：换邮箱请求构造 ----
+
+    @Test
+    fun `换邮箱路径与 Web 契约一致（api-app 前缀由服务端去重写）`() {
+        assertEquals("/api/app/me/email/request", ProfileRequests.PATH_EMAIL_REQUEST)
+        assertEquals("/api/app/me/email/verify", ProfileRequests.PATH_EMAIL_VERIFY)
+    }
+
+    @Test
+    fun `换邮箱请求体：发码只带 newEmail；验证带 newEmail+code`() {
+        val req = ProfileRequests.emailChangeRequestBody("new-mail@example.com")
+        assertTrue(req.contains("\"newEmail\":\"new-mail@example.com\""))
+        assertTrue("发码请求体不含验证码字段", !req.contains("code"))
+
+        val verify = ProfileRequests.emailChangeVerifyBody("new-mail@example.com", "123456")
+        assertTrue(verify.contains("\"newEmail\":\"new-mail@example.com\""))
+        assertTrue(verify.contains("\"code\":\"123456\""))
+    }
 }

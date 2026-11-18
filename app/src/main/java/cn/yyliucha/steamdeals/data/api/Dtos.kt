@@ -107,6 +107,20 @@ data class OkResponse(
     val message: String? = null,
 )
 
+/** CZ 批（docs/EMAIL-CHANGE.md）：换邮箱发码响应 { ok, hint }——已占用邮箱也回同样文案（不泄露）。 */
+@Serializable
+data class EmailChangeRequestResponse(
+    val ok: Boolean = false,
+    val hint: String? = null,
+)
+
+/** CZ 批：换邮箱验证响应 { ok, message }；成功 message 提示「用新邮箱重新登录」。 */
+@Serializable
+data class EmailChangeVerifyResponse(
+    val ok: Boolean = false,
+    val message: String? = null,
+)
+
 // ---------------- App 命名空间 ----------------
 
 @Serializable

@@ -14,6 +14,9 @@ object ProfileRequests {
     const val PATH_PROFILE = "/api/app/me/profile"
     const val PATH_AVATAR = "/api/app/me/avatar"
     const val PATH_LIBRARY = "/api/app/me/library"
+    // CZ 批（docs/EMAIL-CHANGE.md）：更换登录邮箱（与 Web /api/me/email/* 同一套契约）
+    const val PATH_EMAIL_REQUEST = "/api/app/me/email/request"
+    const val PATH_EMAIL_VERIFY = "/api/app/me/email/verify"
 
     /** Steam 账号路径：/api/app/steam/accounts/<id>[/<action>]，steamId 做 URL 编码。 */
     fun steamAccountPath(steamId: String, action: String? = null): String {
@@ -47,4 +50,19 @@ object ProfileRequests {
         val v = avatarUpdatedAt?.takeIf { it.isNotBlank() } ?: "0"
         return "$base/api/avatar/$userId?v=$v"
     }
+
+    /**
+     * CZ 批：换邮箱发码请求体——只发 newEmail；服务端对已占用邮箱也回同样成功文案（不泄露占用）。
+     */
+    fun emailChangeRequestBody(newEmail: String): String =
+        buildJsonObject { put("newEmail", newEmail) }.toString()
+
+    /**
+     * CZ 批：换邮箱验证请求体——newEmail + 6 位验证码；占用在验证码通过后服务端才提示 409。
+     */
+    fun emailChangeVerifyBody(newEmail: String, code: String): String =
+        buildJsonObject {
+            put("newEmail", newEmail)
+            put("code", code)
+        }.toString()
 }

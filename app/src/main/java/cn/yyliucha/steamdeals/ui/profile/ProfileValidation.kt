@@ -25,4 +25,18 @@ object ProfileValidation {
         if (s.length > 200) return "个人简介不能超过 200 字"
         return null
     }
+
+    /** CZ 批（docs/EMAIL-CHANGE.md）：换邮箱新邮箱格式（与服务端 normalizeEmail 同口径：trim 后简单格式校验）。 */
+    fun emailChangeEmailError(value: String): String? {
+        val s = value.trim()
+        if (s.isEmpty()) return "请输入新邮箱"
+        if (!Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(s)) return "邮箱格式不正确"
+        return null
+    }
+
+    /** CZ 批：验证码 6 位数字。 */
+    fun emailChangeCodeError(value: String): String? {
+        if (!Regex("^\\d{6}$").matches(value.trim())) return "请输入 6 位验证码"
+        return null
+    }
 }
