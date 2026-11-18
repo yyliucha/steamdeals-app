@@ -94,6 +94,8 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
                         "page" to nextPage.toString(),
                         "pageSize" to "50",
                         "type" to "all",
+                        // CV 批（docs/APP-SEARCH-OWNED.md）：搜索不排除已拥有
+                        "owned" to "include",
                     ),
                 )
                 results = if (append) (results + resp.games).distinctBy { it.id } else resp.games

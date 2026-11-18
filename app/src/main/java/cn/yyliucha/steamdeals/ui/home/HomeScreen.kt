@@ -124,6 +124,8 @@ class HomeScreenState(vm: AppViewModel, private val appScope: CoroutineScope) {
                         "page" to "1",
                         "pageSize" to "50",
                         "type" to "all",
+                        // CV 批（docs/APP-SEARCH-OWNED.md）：所有查询不排除已拥有
+                        "owned" to "include",
                     ),
                 )
                 allGames.value = resp.games
@@ -151,6 +153,8 @@ class HomeScreenState(vm: AppViewModel, private val appScope: CoroutineScope) {
                         "page" to (page + 1).toString(),
                         "pageSize" to "50",
                         "type" to "all",
+                        // CV 批：所有查询不排除已拥有
+                        "owned" to "include",
                     ),
                 )
                 allGames.value = (allGames.value + resp.games).distinctBy { it.id }

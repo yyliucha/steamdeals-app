@@ -126,6 +126,10 @@ fun GameCard(
                         color = MaterialTheme.colorScheme.primary,
                     )
                     if (isNewHistLow) Badge("新史低", SuccessGreen)
+                    if (game.owned) Badge(
+                        text = ownedByText(game.owned_by),
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
                     when (game.steam_status) {
                         "region_locked" -> Badge("国区不可售", MaterialTheme.colorScheme.error)
                         "coming_soon" -> Badge("未发售", MaterialTheme.colorScheme.tertiary)

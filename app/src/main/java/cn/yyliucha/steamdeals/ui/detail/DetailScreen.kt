@@ -72,6 +72,7 @@ import cn.yyliucha.steamdeals.ui.components.formatPct
 import cn.yyliucha.steamdeals.ui.components.formatPrice
 import cn.yyliucha.steamdeals.ui.components.nameCopyText
 import cn.yyliucha.steamdeals.ui.components.openCustomTab
+import cn.yyliucha.steamdeals.ui.components.ownedByText
 import cn.yyliucha.steamdeals.ui.components.steamImageUrl
 import cn.yyliucha.steamdeals.ui.components.steamStoreUrl
 import cn.yyliucha.steamdeals.ui.components.toast
@@ -200,13 +201,34 @@ fun DetailScreen(vm: AppViewModel, navController: NavHostController, appid: Long
                     color = MaterialTheme.colorScheme.surface,
                     shadowElevation = 6.dp,
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        ActionToggle(
+                    // CV 批（docs/APP-SEARCH-OWNED.md 决策 4）：已拥有终态——只留「去 Steam 商店」
+                    if (game.owned) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                        ) {
+                            Button(
+                                onClick = { openCustomTab(context, steamStoreUrl(game.steam_appid)) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                ),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(
+                                    stringResource(R.string.act_buy_steam),
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            ActionToggle(
                             text = if (game.user_interested == true) {
                                 stringResource(R.string.act_interested_on)
                             } else {
@@ -336,6 +358,7 @@ fun DetailScreen(vm: AppViewModel, navController: NavHostController, appid: Long
                                 maxLines = 1,
                             )
                         }
+                        }
                     }
                 }
             }
@@ -461,6 +484,15 @@ private fun DetailContent(
                         text = game.name_en,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                // CV 批（docs/APP-SEARCH-OWNED.md 决策 3）：已拥有显示全部账号名
+                if (game.owned) {
+                    Text(
+                        text = ownedByText(game.owned_by),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.padding(top = 4.dp),
                     )
                 }
                 // 徽章

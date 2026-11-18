@@ -55,6 +55,16 @@ fun formatPrice(cents: Long?, currency: String?): String {
 
 fun formatPct(pct: Int?): String = if (pct == null || pct <= 0) "" else "-$pct%"
 
+/** CV 批（docs/APP-SEARCH-OWNED.md 决策 3）：已拥有账号徽标文案，与 Web ownedByText 同口径（前 2 个 +N）。 */
+fun ownedByText(by: List<cn.yyliucha.steamdeals.data.api.OwnedByDto>): String {
+    val names = (by ?: emptyList()).mapNotNull { a ->
+        a.name?.takeIf { it.isNotBlank() } ?: a.steamId
+    }
+    if (names.isEmpty()) return "已拥有"
+    return if (names.size > 2) "已拥有 · ${names.take(2).joinToString("、")} +${names.size - 2}"
+    else "已拥有 · ${names.joinToString("、")}"
+}
+
 /** 站点图片代理：封面走服务端 /img/steam/<appid>/<size>（App 不直连 Steam CDN）。 */
 fun steamImageUrl(appid: Long?, size: String = "header"): String? =
     appid?.let { "${BuildConfig.API_BASE_URL.trimEnd('/')}/img/steam/$it/$size" }
