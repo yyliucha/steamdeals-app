@@ -74,16 +74,18 @@ keytool -printcert -jarfile app\build\outputs\apk\release\app-release.apk | find
 
 ## 已知限制（与站点仓库 CM 条目同步）
 
-1. 首页「折扣/史低/免费/未发售」筛选与「热度/发行时间/价格」排序目前按**已加载数据本地处理**
-   （列表行自带 `discount/prev_hist_low/release_date/heat` 字段）；服务端 `/api/games` 补对应
-   `filter` 参数后（CM-5 二期），只需替换 `HomeScreenState.applyDisplay`，App 无需改版。
+1. ~~首页「折扣/史低/免费/未发售」筛选与「热度/发行时间/价格」排序目前按**已加载数据本地处理**~~
+   **DA 批（站点 TODO DA，CM-5 二期）已服务端化**：chip/排序变更带服务端参数重新请求第一页
+   （`discountOnly/histLowOnly/freeOnly/unreleased` 互斥 + `sort=heat|release|price` + `owned=only` 已拥有 chip，
+   仅登录且已绑定 Steam 显示；空态「没有符合条件的游戏」）；App 无需再本地过滤。
 2. 「感兴趣/不感兴趣」按契约走 `POST /api/games/:appid/interest`（APP-API.md §4，普通用户可操作）；
    该路由当前在站点侧仍是管理员专用（CA-1 收尾前）→ App 收到 403 时自动回退现有用户级
    `/api/games/:appid/flags`（请求体相同）；契约端点放开后无需改 App。
 3. 内置更新下载用 OkHttp 流式 + 应用内进度条（BY 契约的 DownloadManager 是 TWA 实现细节；
    SHA-256 校验 / Wi-Fi 默认 / 系统安装确认 / 白名单主机均与契约一致）。
 4. 注册完成后回登录页预填用户名：App 的 Token 登录仍需再输一次图形验证码（服务端验证码必填）。
-5. 「已拥有」标记第一期未做（APP-API.md 未提供 App 端 owned 接口；web 有）。
+5. 「已拥有」chip（DA 批）复用站点 `owned=only`（多账号 Steam 库存并集）；Steam 账号**绑定**仍在网页版
+   控制台完成（App 无绑定入口），未绑定用户看不到该 chip。
 6. DLC 列表依赖站点 `game_dlc` 数据同步（随 steam-status/backfill 顺带写入）；数据未同步的游戏
    详情不显示 DLC 区块（无 DLC/非 Steam 同规则，按 CM 规格）。
 7. 复制游戏名复制**中英文两行**（英文缺失/与中文相同回退单行），与 Web 详情弹窗口径一致。

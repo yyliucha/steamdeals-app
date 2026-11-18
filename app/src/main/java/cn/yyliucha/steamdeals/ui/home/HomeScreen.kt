@@ -1,5 +1,6 @@
 package cn.yyliucha.steamdeals.ui.home
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -43,15 +45,14 @@ import cn.yyliucha.steamdeals.data.api.ApiException
 import cn.yyliucha.steamdeals.data.api.GameDto
 import cn.yyliucha.steamdeals.ui.AppViewModel
 import cn.yyliucha.steamdeals.ui.Routes
+import cn.yyliucha.steamdeals.ui.components.EmptyBox
 import cn.yyliucha.steamdeals.ui.components.ErrorBox
 import cn.yyliucha.steamdeals.ui.components.GameCard
 import cn.yyliucha.steamdeals.ui.components.LoadingBox
 import cn.yyliucha.steamdeals.ui.components.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 enum class HomeFilter(val labelRes: Int) {
@@ -60,6 +61,7 @@ enum class HomeFilter(val labelRes: Int) {
     HIST_LOW(R.string.filter_hist_low),
     FREE(R.string.filter_free),
     UPCOMING(R.string.filter_upcoming),
+    OWNED(R.string.filter_owned),
 }
 
 enum class HomeSort(val labelRes: Int) {
@@ -69,12 +71,47 @@ enum class HomeSort(val labelRes: Int) {
 }
 
 /**
+ * DA 批（站点 docs/APP-FILTER-SERVER-SIDE.md §2/§3）：筛选/排序 → 服务端参数映射（纯函数，可单测）。
+ * 服务端契约：discountOnly / histLowOnly / freeOnly / unreleased 四个开关互斥（优先级在服务端归一）；
+ * sort=heat|release|price；owned=only 是「已拥有」chip，其余 chip 沿用 CV 批口径 owned=include（不排除已拥有）。
+ */
+object HomeFilterParams {
+    fun filterParam(filter: HomeFilter): Pair<String, String> = when (filter) {
+        HomeFilter.ALL -> "owned" to "include"
+        HomeFilter.DISCOUNT -> "discountOnly" to "1"
+        HomeFilter.HIST_LOW -> "histLowOnly" to "1"
+        HomeFilter.FREE -> "freeOnly" to "1"
+        HomeFilter.UPCOMING -> "unreleased" to "1"
+        HomeFilter.OWNED -> "owned" to "only"
+    }
+
+    fun sortParam(sort: HomeSort): String = when (sort) {
+        HomeSort.HEAT -> "heat"
+        HomeSort.RELEASE -> "release"
+        HomeSort.PRICE -> "price"
+    }
+
+    fun paramsFor(filter: HomeFilter, sort: HomeSort, page: Int, pageSize: Int): Map<String, String> {
+        val (key, value) = filterParam(filter)
+        return buildMap {
+            put("region", "cn")
+            put("page", page.toString())
+            put("pageSize", pageSize.toString())
+            put("type", "all")
+            put("sort", sortParam(sort))
+            put("owned", "include") // CV 批：所有查询不排除已拥有
+            put(key, value)
+        }
+    }
+}
+
+/**
  * 首页（效果图 ②）：搜索入口 + 筛选 chips + 单列卡片 + 加载更多。
- * 说明：服务端 /api/games 目前只支持 sort（discount/price/name）与 type/released 参数，
- * 效果图的 折扣/史低/免费/未发售 筛选与 热度/发行时间 排序先按已加载数据本地处理，
- * 服务端补 filter 参数后只需替换 applyDisplay（见 README「已知限制」）。
+ * DA 批（docs/APP-FILTER-SERVER-SIDE.md）：筛选与排序全部服务端化——
+ * chip/排序变更 → 带参数重新请求第一页（不追加旧数据）；列表直接展示服务端结果（不再本地过滤已加载数据）。
  */
 class HomeScreenState(vm: AppViewModel, private val appScope: CoroutineScope) {
+    private val vm = vm
     private val api = vm.apiPublic
 
     val allGames = MutableStateFlow<List<GameDto>>(emptyList())
@@ -84,60 +121,34 @@ class HomeScreenState(vm: AppViewModel, private val appScope: CoroutineScope) {
     val loadingMore = MutableStateFlow(false)
     val error = MutableStateFlow<String?>(null)
     val hasMore = MutableStateFlow(true)
+    /** 已绑定 Steam（/api/me 的 steamBound）：「已拥有」chip 仅登录且绑定后显示。 */
+    val steamBound = MutableStateFlow(false)
     var page = 1
+    private var requestSeq = 0
 
-    val displayed: kotlinx.coroutines.flow.StateFlow<List<GameDto>> =
-        combine(allGames, filter, sort) { games, f, s ->
-            val filtered = when (f) {
-                HomeFilter.ALL -> games
-                HomeFilter.DISCOUNT -> games.filter { (it.discount ?: 0) > 0 }
-                HomeFilter.HIST_LOW -> games.filter {
-                    it.prev_hist_low != null && it.current_low != null && it.current_low < it.prev_hist_low
-                }
-                HomeFilter.FREE -> games.filter { it.current_low == 0L }
-                HomeFilter.UPCOMING -> games.filter {
-                    val d = it.release_date ?: return@filter false
-                    val today = java.time.LocalDate.now().toString()
-                    d > today
-                }
-            }
-            when (s) {
-                HomeSort.HEAT -> filtered.sortedByDescending { it.heat ?: 0.0 }
-                HomeSort.RELEASE -> filtered.sortedWith(
-                    compareByDescending<GameDto> { it.release_date ?: "" },
-                )
-                HomeSort.PRICE -> filtered.sortedWith(
-                    compareBy<GameDto> { it.current_low ?: Long.MAX_VALUE },
-                )
-            }
-        }.stateIn(appScope, SharingStarted.Eagerly, emptyList())
+    /** 列表即服务端筛选排序后的结果（分页按当前 filter/sort 追加）。 */
+    val displayed: StateFlow<List<GameDto>> = allGames
 
     fun refresh() {
         appScope.launch {
             loading.value = true
             error.value = null
             page = 1
+            val seq = ++requestSeq
             try {
-                val resp = api.games(
-                    mapOf(
-                        "region" to "cn",
-                        "page" to "1",
-                        "pageSize" to "50",
-                        "type" to "all",
-                        // CV 批（docs/APP-SEARCH-OWNED.md）：所有查询不排除已拥有
-                        "owned" to "include",
-                    ),
-                )
+                val resp = api.games(HomeFilterParams.paramsFor(filter.value, sort.value, 1, 50))
+                if (seq != requestSeq) return@launch // 更晚的请求已接管，丢弃本次结果
                 allGames.value = resp.games
                 hasMore.value = resp.page < resp.pages
                 page = resp.page
             } catch (e: ApiException) {
+                if (seq != requestSeq) return@launch
                 error.value = when (e) {
                     is ApiException.Network -> "网络错误，请检查网络后重试"
                     else -> e.message ?: "加载失败"
                 }
             } finally {
-                loading.value = false
+                if (seq == requestSeq) loading.value = false
             }
         }
     }
@@ -146,24 +157,17 @@ class HomeScreenState(vm: AppViewModel, private val appScope: CoroutineScope) {
         if (loading.value || loadingMore.value || !hasMore.value) return
         appScope.launch {
             loadingMore.value = true
+            val seq = requestSeq
             try {
-                val resp = api.games(
-                    mapOf(
-                        "region" to "cn",
-                        "page" to (page + 1).toString(),
-                        "pageSize" to "50",
-                        "type" to "all",
-                        // CV 批：所有查询不排除已拥有
-                        "owned" to "include",
-                    ),
-                )
+                val resp = api.games(HomeFilterParams.paramsFor(filter.value, sort.value, page + 1, 50))
+                if (seq != requestSeq) return@launch
                 allGames.value = (allGames.value + resp.games).distinctBy { it.id }
                 page = resp.page
                 hasMore.value = resp.page < resp.pages
             } catch (_: Exception) {
                 // 加载更多失败静默，滚动到底可再触发
             } finally {
-                loadingMore.value = false
+                if (seq == requestSeq) loadingMore.value = false
             }
         }
     }
@@ -171,11 +175,24 @@ class HomeScreenState(vm: AppViewModel, private val appScope: CoroutineScope) {
     fun setFilter(f: HomeFilter) {
         if (filter.value == f) return
         filter.value = f
+        refresh() // chip 变更 → 服务端筛选 + 分页重置（回到第一页，不追加旧数据）
     }
 
     fun setSort(s: HomeSort) {
         if (sort.value == s) return
         sort.value = s
+        refresh() // 排序变更同样服务端化 + 分页重置
+    }
+
+    /** 登录态变化 / 进入首页时刷新绑定状态；未登录直接复位。 */
+    fun refreshSteamBound() {
+        if (!vm.session.value.isLoggedIn) {
+            steamBound.value = false
+            return
+        }
+        appScope.launch {
+            runCatching { api.me() }.onSuccess { steamBound.value = it.steamBound }
+        }
     }
 }
 
@@ -192,10 +209,17 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
     val hasMore by state.hasMore.collectAsState()
     val filter by state.filter.collectAsState()
     val sort by state.sort.collectAsState()
+    val steamBound by state.steamBound.collectAsState()
     val listState = rememberLazyListState()
 
     LaunchedEffect(Unit) {
         if (state.allGames.value.isEmpty()) state.refresh()
+    }
+    // 登录态变化（登录/退出）时刷新「已拥有」chip 显隐依据；登录后进入首页也拉一次
+    LaunchedEffect(session.isLoggedIn) {
+        state.refreshSteamBound()
+        // 登录态切换影响 owned 口径（include/only 都随登录变化）→ 重拉当前筛选
+        if (state.allGames.value.isNotEmpty() || state.error.value != null) state.refresh()
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -237,12 +261,16 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
                 }
             }
 
-            // 筛选 chips
+            // 筛选 chips（DA 批：6 个；「已拥有」仅登录且已绑定 Steam 时显示）
             Row(
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 HomeFilter.entries.forEach { f ->
+                    // DA 批（docs/APP-FILTER-SERVER-SIDE.md §3）：已拥有 chip 仅登录+已绑定 Steam 显示
+                    if (f == HomeFilter.OWNED && !(session.isLoggedIn && steamBound)) return@forEach
                     FilterChip(
                         selected = filter == f,
                         onClick = { state.setFilter(f) },
@@ -280,6 +308,13 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
             error != null && displayed.isEmpty() -> ErrorBox(
                 message = error ?: "",
                 onRetry = { state.refresh() },
+            )
+            displayed.isEmpty() -> EmptyBox(
+                text = if (filter == HomeFilter.OWNED) {
+                    stringResource(R.string.home_owned_empty_guide)
+                } else {
+                    stringResource(R.string.home_empty_filter)
+                },
             )
             else -> LazyColumn(
                 state = listState,
@@ -357,6 +392,3 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
         }
     }
 }
-
-
-

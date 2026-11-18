@@ -280,6 +280,8 @@ data class MeResponse(
     val user: UserDto? = null,
     val prefs: PrefsDto? = null,
     val timezone: String? = null,
+    // DA 批（站点 docs/APP-FILTER-SERVER-SIDE.md §3）：首页「已拥有」chip 仅登录且已绑定 Steam 时显示
+    val steamBound: Boolean = false,
 )
 
 @Serializable

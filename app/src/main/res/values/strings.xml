@@ -61,12 +61,16 @@
     <string name="filter_hist_low">史低</string>
     <string name="filter_free">免费</string>
     <string name="filter_upcoming">未发售</string>
+    <string name="filter_owned">已拥有</string>
     <string name="sort_heat">热度</string>
     <string name="sort_release">发行时间</string>
     <string name="sort_price">价格</string>
     <string name="sort_default">默认</string>
     <string name="load_more">加载更多</string>
     <string name="no_more">已经到底啦</string>
+    <!-- DA 批：服务端筛选空态（筛选无结果 / 已拥有空态引导） -->
+    <string name="home_empty_filter">没有符合条件的游戏</string>
+    <string name="home_owned_empty_guide">还没有已拥有的游戏\n去网页版 SteamDeals 绑定 Steam 账号后自动同步</string>
 
     <!-- 游戏卡片 -->
     <string name="badge_region_locked">国区不可售</string>
