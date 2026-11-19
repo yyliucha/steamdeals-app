@@ -82,8 +82,7 @@
     <string name="badge_wishlisted">愿望单</string>
 
     <!-- 详情 -->
-    <string name="detail_metric_current">当前最低</string>
-    <string name="detail_metric_hist">历史最低</string>
+    <string name="detail_metric_current">当前最低</string>    <string name="detail_metric_hist">历史最低</string>
     <string name="detail_metric_discount">折扣</string>
     <string name="detail_section_offers">各区服报价</string>
     <string name="detail_section_history">价格历史</string>
@@ -141,6 +140,9 @@
     <string name="search_history">搜索历史</string>
     <string name="search_clear_history">清空历史</string>
     <string name="search_result_count">共 %1$d 个结果</string>
+    <!-- EA-2：搜索空态引导 -->
+    <string name="search_empty_guide">没找到「%1$s」\n试试别的关键词、拼音（如 xdlc）或英文名</string>
+    <string name="search_clear_query">清空搜索</string>
 
     <!-- 愿望单 -->
     <string name="wishlist_login_guide">登录后查看和管理你的愿望单</string>

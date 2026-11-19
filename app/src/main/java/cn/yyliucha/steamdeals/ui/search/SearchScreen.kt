@@ -44,6 +44,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
@@ -147,6 +148,12 @@ class SearchScreenState(private val vm: AppViewModel) {
 
     fun retry() {
         doSearch(submitted)
+    }
+
+    /** EA-2（docs/ANDROID-POLISH.md §EA-2）：清空搜索词与结果，回到历史关键词页。 */
+    fun resetQuery() {
+        keyword = ""
+        submitted = ""
     }
 }
 
@@ -290,7 +297,29 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
                     Text(stringResource(R.string.retry))
                 }
             }
-            state.results.isEmpty() -> EmptyBox(context.getString(R.string.empty_list))
+            state.results.isEmpty() -> Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                // EA-2（docs/ANDROID-POLISH.md §EA-2）：空态引导——告诉用户改关键词/拼音/英文名，
+                // 并提供「重试」（同词重搜）与「清空搜索」（回到历史关键词页，历史词可一键重搜）。
+                Text(
+                    text = context.getString(R.string.search_empty_guide, state.submitted),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 32.dp),
+                )
+                Row(modifier = Modifier.padding(top = 12.dp)) {
+                    TextButton(onClick = { state.retry() }) {
+                        Text(stringResource(R.string.retry))
+                    }
+                    TextButton(onClick = { state.resetQuery() }) {
+                        Text(stringResource(R.string.search_clear_query))
+                    }
+                }
+            }
             else -> {
                 Text(
                     text = context.getString(R.string.search_result_count, state.total),
