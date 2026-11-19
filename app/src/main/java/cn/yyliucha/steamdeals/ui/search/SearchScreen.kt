@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +26,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -152,7 +154,7 @@ class SearchScreenState(private val vm: AppViewModel) {
  * 搜索页（效果图 ④）：自动聚焦、历史关键词、结果卡片（含 DLC）。
  * DY：状态全部走 SearchScreenState（ViewModel 持有），滚动位置 rememberSaveable。
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
     val scope = rememberCoroutineScope()
@@ -218,6 +220,13 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
             }
         }
 
+        // EA-1（docs/ANDROID-POLISH.md §EA-1）：下拉刷新——已提交且有结果时 pull 重搜当前词；
+        // 未提交时下拉无效（保持历史页）；onRefresh 仅在非加载中触发（不重复请求）。
+        PullToRefreshBox(
+            isRefreshing = state.loading && state.results.isNotEmpty(),
+            onRefresh = { if (state.submitted.isNotEmpty() && !state.loading) state.retry() },
+            modifier = Modifier.fillMaxSize(),
+        ) {
         when {
             state.submitted.isEmpty() -> {
                 // 历史关键词
@@ -345,6 +354,7 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
                     }
                 }
             }
+        }
         }
     }
 }

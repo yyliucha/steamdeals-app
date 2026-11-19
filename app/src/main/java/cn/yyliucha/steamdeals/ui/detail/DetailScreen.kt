@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -378,14 +379,25 @@ fun DetailScreen(vm: AppViewModel, navController: NavHostController, appid: Long
             }
         },
     ) { padding ->
+        // EA-1（docs/ANDROID-POLISH.md §EA-1）：下拉刷新——详情已加载时 pull 重拉详情 + DLC 第一页；
+        // 初始加载仍走骨架/LoadingBox；onRefresh 仅在非加载中触发（不重复请求）。
+        PullToRefreshBox(
+            isRefreshing = state.loading && detail != null,
+            onRefresh = {
+                if (!state.loading) {
+                    state.refresh()
+                    state.loadDlcPage(1)
+                }
+            },
+            modifier = Modifier.fillMaxSize().padding(padding),
+        ) {
         when {
-            state.loading && detail == null -> LoadingBox(Modifier.padding(padding))
+            state.loading && detail == null -> LoadingBox()
             state.error != null && detail == null -> ErrorBox(
                 message = state.error ?: "",
                 onRetry = { state.refresh() },
-                modifier = Modifier.padding(padding),
             )
-            detail == null -> LoadingBox(Modifier.padding(padding))
+            detail == null -> LoadingBox()
             else -> {
                 // DY：详情正文滚动位置 rememberSaveable（旋转不丢）。
                 val detailListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
@@ -394,9 +406,9 @@ fun DetailScreen(vm: AppViewModel, navController: NavHostController, appid: Long
                     state = state,
                     context = context,
                     listState = detailListState,
-                    modifier = Modifier.padding(padding),
                 )
             }
+        }
         }
     }
 }

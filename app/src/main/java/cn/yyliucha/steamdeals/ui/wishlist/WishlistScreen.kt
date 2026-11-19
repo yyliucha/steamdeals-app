@@ -13,12 +13,14 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -116,6 +118,7 @@ class WishlistScreenState(vm: AppViewModel, private val appScope: CoroutineScope
  * 愿望单（效果图 ⑤）：未登录 → 登录引导页；已登录 → 与 web 账号共享的愿望单列表
  * （已降价/史低筛选 + 移除）。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WishlistScreen(vm: AppViewModel, navController: NavHostController) {
     val appScope = rememberCoroutineScope()
@@ -164,6 +167,13 @@ fun WishlistScreen(vm: AppViewModel, navController: NavHostController) {
             }
         }
 
+        // EA-1（docs/ANDROID-POLISH.md §EA-1）：下拉刷新——列表有数据时 pull 重拉愿望单；
+        // 初始加载（空列表）仍用全屏 LoadingBox；onRefresh 仅在非加载中触发（不重复请求）。
+        PullToRefreshBox(
+            isRefreshing = loading && displayed.isNotEmpty(),
+            onRefresh = { if (!loading) state.refresh() },
+            modifier = Modifier.fillMaxSize(),
+        ) {
         when {
             loading && displayed.isEmpty() -> LoadingBox()
             displayed.isEmpty() -> EmptyBox(stringResource(R.string.wishlist_empty))
@@ -197,6 +207,7 @@ fun WishlistScreen(vm: AppViewModel, navController: NavHostController) {
                     )
                 }
             }
+        }
         }
     }
 }

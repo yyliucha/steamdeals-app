@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -29,6 +30,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -201,6 +203,7 @@ class HomeScreenState(vm: AppViewModel, private val appScope: CoroutineScope) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
     val appScope = rememberCoroutineScope()
@@ -334,6 +337,13 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
             }
         }
 
+        // EA-1（docs/ANDROID-POLISH.md §EA-1）：下拉刷新——列表有数据时 indicator 走 PullToRefreshBox，
+        // 初始加载（空列表）仍用全屏 LoadingBox；onRefresh 仅在非加载中触发（不重复请求）。
+        PullToRefreshBox(
+            isRefreshing = loading && displayed.isNotEmpty(),
+            onRefresh = { if (!loading) state.refresh() },
+            modifier = Modifier.fillMaxSize(),
+        ) {
         when {
             loading && displayed.isEmpty() -> LoadingBox()
             error != null && displayed.isEmpty() -> ErrorBox(
@@ -420,6 +430,7 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
                     }
                 }
             }
+        }
         }
     }
 }
