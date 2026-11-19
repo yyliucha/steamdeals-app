@@ -65,10 +65,10 @@
     <string name="filter_free">免费</string>
     <string name="filter_upcoming">未发售</string>
     <string name="filter_owned">已拥有</string>
-    <!-- EB：18R 内容选项（默认关闭；开=adult=badge 显示+18+角标 / 关=adult=hide） -->
+    <!-- EF：18R 筛选开关（默认关闭；开=只看 18R（adult=badge&rating=adult，带 18+ 角标）/ 关=恢复全部（adult=hide）） -->
     <string name="filter_adult">18R</string>
     <string name="adult_confirm_title">确认已满 18 岁</string>
-    <string name="adult_confirm_text">开启后将显示 18R 成人内容游戏，并带「18+」角标。确认你已年满 18 岁？</string>
+    <string name="adult_confirm_text">开启后将只显示 18R 成人内容游戏，并带「18+」角标。确认你已年满 18 岁？</string>
     <string name="sort_heat">热度</string>
     <string name="sort_release">发行时间</string>
     <string name="sort_price">价格</string>

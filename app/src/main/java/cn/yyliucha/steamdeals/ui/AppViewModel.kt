@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -80,12 +81,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     val session: StateFlow<SessionData> = locator.sessionManager.session
 
-    /** 公告（DC）：角标 / 弹层 / 已读的全局状态，首页与「我的」共用。 */
+    /** 公告（DC/EG）：角标 / 弹层 / 已读的全局状态，首页与「我的」共用。
+     *  EG：经 AnnouncementsGateway 缝注入 api——状态逻辑与网络解耦，单测可挂起拦截复现竞态。 */
     val announcementsState = cn.yyliucha.steamdeals.ui.notifications.AnnouncementsState(
-        api = api,
-        store = store,
-        session = session,
         scope = viewModelScope,
+        session = session,
+        gateway = object : cn.yyliucha.steamdeals.ui.notifications.AnnouncementsGateway {
+            override suspend fun fetch() = api.announcements()
+            override suspend fun markRead(ids: List<Long>) {
+                api.markAnnouncementsRead(ids)
+            }
+        },
+        persistLocalReads = { ids -> store.setReadAnnouncementIds(ids) },
+        localReadIds = { store.data.firstOrNull()?.readAnnouncementIds.orEmpty() },
     )
 
     // ---------- DY（站点 docs/ANDROID-POLISH.md §DY）：页面状态提升到 ViewModel ----------
@@ -101,8 +109,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope, SharingStarted.Eagerly, "system",
     )
 
-    // ---------- EB（站点 docs/ANDROID-POLISH.md §EB）：18R 内容选项 ----------
-    // 默认关闭 + 本地 DataStore 记忆；首页/搜索共用同一开关；首次开启需弹「确认已满 18 岁」。
+    // ---------- EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 筛选开关 ----------
+    // 默认关闭 + 本地 DataStore 记忆；首页/搜索共用同一开关；开=只看 18R、关=恢复全部；
+    // 首次开启需弹「确认已满 18 岁」。
     val adultEnabled: StateFlow<Boolean> = session.map { it.adultEnabled }.stateIn(
         viewModelScope, SharingStarted.Eagerly, false,
     )

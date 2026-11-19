@@ -117,17 +117,19 @@ class SearchScreenState(private val vm: AppViewModel) {
             errorMsg = null
             try {
                 val resp = api.games(
-                    mapOf(
-                        "region" to "cn",
-                        "q" to keyword.trim(),
-                        "page" to nextPage.toString(),
-                        "pageSize" to "50",
-                        "type" to "all",
+                    buildMap {
+                        put("region", "cn")
+                        put("q", keyword.trim())
+                        put("page", nextPage.toString())
+                        put("pageSize", "50")
+                        put("type", "all")
                         // CV 批（docs/APP-SEARCH-OWNED.md）：搜索不排除已拥有
-                        "owned" to "include",
-                        // EB（docs/ANDROID-POLISH.md §EB）：开=badge（显示+角标）/ 关=hide（默认）
-                        "adult" to if (vm.adultEnabled.value) "badge" else "hide",
-                    ),
+                        put("owned", "include")
+                        // EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 改「筛选」语义——
+                        // 开=只看 18R（adult=badge&rating=adult，带 18+ 角标）/ 关=恢复全部（adult=hide）
+                        put("adult", if (vm.adultEnabled.value) "badge" else "hide")
+                        if (vm.adultEnabled.value) put("rating", "adult")
+                    },
                 )
                 results = if (append) (results + resp.games).distinctBy { it.id } else resp.games
                 total = resp.total
@@ -195,7 +197,7 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
     // 搜索历史（本地 DataStore）
     val sessionData by vm.session.collectAsState()
     val historyList = sessionData.searchHistory
-    // EB（docs/ANDROID-POLISH.md §EB）：18R 开关与年龄确认（与首页共用 AppViewModel 状态）
+    // EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 筛选开关与年龄确认（与首页共用 AppViewModel 状态）
     val adultEnabled by vm.adultEnabled.collectAsState()
     val adultConfirmed by vm.adultConfirmed.collectAsState()
     var showAdultConfirm by rememberSaveable { mutableStateOf(false) }
@@ -203,7 +205,7 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
-    // EB：18R 开关变化 → 已提交搜索词时带新 adult 参数重搜当前词
+    // EF：18R 开关变化 → 已提交搜索词时带新 adult/rating 参数重搜当前词
     LaunchedEffect(adultEnabled) {
         if (state.submitted.isNotEmpty()) state.doSearch(state.submitted)
     }
@@ -240,7 +242,8 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
             }
         }
 
-        // EB（docs/ANDROID-POLISH.md §EB）：搜索页 18R chip（与首页同一开关；首次开启弹年龄确认）
+        // EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：搜索页 18R chip 改「筛选」语义
+        // （与首页同一开关；开=只看 18R，关=恢复全部；首次开启弹年龄确认）
         Row(
             modifier = Modifier
                 .padding(start = 16.dp, end = 16.dp, bottom = 2.dp)
@@ -426,8 +429,8 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
         }
     }
 
-    // EB（docs/ANDROID-POLISH.md §EB）：首次开启 18R 弹「确认已满 18 岁」（确认后 DataStore 记忆不再弹；
-    // 未确认不切换开关）
+    // EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：首次开启 18R 筛选弹「确认已满 18 岁」
+    // （确认后 DataStore 记忆不再弹，未确认不切换开关——EB 批交互保留）
     if (showAdultConfirm) {
         AlertDialog(
             onDismissRequest = { showAdultConfirm = false },

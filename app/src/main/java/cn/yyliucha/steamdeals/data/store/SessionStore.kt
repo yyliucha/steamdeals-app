@@ -27,7 +27,7 @@ data class SessionData(
     val searchHistory: List<String> = emptyList(),
     val lastUpdateCheckAt: Long = 0,
     val ignoredVersionCode: Int = 0,
-    /** EB（站点 docs/ANDROID-POLISH.md §EB）：18R 内容开关与年龄确认（默认关闭；本地 DataStore 记忆）。 */
+    /** EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 筛选开关与年龄确认（默认关闭；本地 DataStore 记忆）。 */
     val adultEnabled: Boolean = false,
     val adultConfirmed: Boolean = false,
 ) {
@@ -63,7 +63,7 @@ class SessionStore(private val context: Context) {
         val SEARCH_HISTORY = stringPreferencesKey("search_history")
         val LAST_UPDATE_CHECK_AT = longPreferencesKey("last_update_check_at")
         val IGNORED_VERSION_CODE = stringPreferencesKey("ignored_version_code")
-        // EB（docs/ANDROID-POLISH.md §EB）：18R 开关与年龄确认
+        // EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 筛选开关与年龄确认
         val ADULT_ENABLED = booleanPreferencesKey("adult_enabled")
         val ADULT_CONFIRMED = booleanPreferencesKey("adult_confirmed")
     }
@@ -150,12 +150,12 @@ class SessionStore(private val context: Context) {
         context.sessionDataStore.edit { it[Keys.IGNORED_VERSION_CODE] = code.toString() }
     }
 
-    /** EB（docs/ANDROID-POLISH.md §EB）：18R 开关（默认关闭；开=adult=badge / 关=adult=hide）。 */
+    /** EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 筛选开关（默认关闭；开=只看 18R / 关=恢复全部）。 */
     suspend fun setAdultEnabled(enabled: Boolean) {
         context.sessionDataStore.edit { it[Keys.ADULT_ENABLED] = enabled }
     }
 
-    /** EB：首次开启 18R 的年龄确认（确认过不再弹）。 */
+    /** EF：首次开启 18R 筛选的年龄确认（确认过不再弹）。 */
     suspend fun setAdultConfirmed() {
         context.sessionDataStore.edit { it[Keys.ADULT_CONFIRMED] = true }
     }

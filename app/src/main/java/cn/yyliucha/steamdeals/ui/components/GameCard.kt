@@ -137,7 +137,7 @@ fun GameCard(
                     }
                     if (game.app_type == "dlc") Badge("DLC", BrandPurple)
                     if (game.mature_flag) Badge("成熟内容", MaterialTheme.colorScheme.tertiary)
-                    // EB（docs/ANDROID-POLISH.md §EB）：18R 角标——红色，与「成熟内容」样式区分
+                    // EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 角标——红色，与「成熟内容」样式区分
                     if (game.adult_flag) Badge("18+", DangerRed)
                 }
 
