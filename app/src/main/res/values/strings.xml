@@ -161,6 +161,10 @@
     <string name="me_about">关于</string>
     <string name="me_logout">退出登录</string>
     <string name="me_logout_confirm">确定退出登录吗？</string>
+    <!-- EA-4：版本号 + 清除图片缓存 -->
+    <string name="me_version">当前版本</string>
+    <string name="me_clear_image_cache">清除图片缓存</string>
+    <string name="toast_cache_cleared">图片缓存已清除</string>
     <string name="theme_system">跟随系统</string>
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>

@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import cn.yyliucha.steamdeals.BuildConfig
 import cn.yyliucha.steamdeals.R
 import cn.yyliucha.steamdeals.ui.AppViewModel
 import cn.yyliucha.steamdeals.ui.Routes
@@ -61,6 +62,7 @@ import cn.yyliucha.steamdeals.ui.profile.initialOf
 import cn.yyliucha.steamdeals.ui.theme.BrandPurple
 import cn.yyliucha.steamdeals.ui.wishlist.LoginGuide
 import coil.compose.AsyncImage
+import coil.imageLoader
 
 /**
  * 我的（效果图 ⑥）：账号信息、通知、主题（跟随系统/深/浅）、检查更新、修改密码、关于、退出登录。
@@ -75,10 +77,16 @@ fun MeScreen(vm: AppViewModel, navController: NavHostController) {
     var logoutDialog by rememberSaveable { mutableStateOf(false) }
 
     if (!session.isLoggedIn) {
-        LoginGuide(
-            text = stringResource(R.string.me_login_guide),
-            onLogin = { navController.navigate(Routes.LOGIN) },
-        )
+        // EA-4（docs/ANDROID-POLISH.md §EA-4）：游客态同样显示当前版本（登录引导 + 底部版本行）
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.weight(1f)) {
+                LoginGuide(
+                    text = stringResource(R.string.me_login_guide),
+                    onLogin = { navController.navigate(Routes.LOGIN) },
+                )
+            }
+            VersionLine()
+        }
         return
     }
 
@@ -193,6 +201,24 @@ fun MeScreen(vm: AppViewModel, navController: NavHostController) {
                 label = stringResource(R.string.me_about),
                 onClick = { navController.navigate(Routes.ABOUT) },
             )
+            // EA-4（docs/ANDROID-POLISH.md §EA-4）：当前版本号（与 build.gradle versionName 同源）与
+            // 清除图片缓存（仅清 Coil 内存/磁盘图片缓存，不动登录态与其它数据）
+            MeRow(
+                icon = Icons.Filled.Info,
+                label = stringResource(R.string.me_version),
+                value = "v${BuildConfig.VERSION_NAME}",
+            )
+            MeRow(
+                icon = Icons.Filled.Build,
+                label = stringResource(R.string.me_clear_image_cache),
+                onClick = {
+                    runCatching {
+                        context.imageLoader.memoryCache?.clear()
+                        context.imageLoader.diskCache?.clear()
+                    }
+                    toast(context, context.getString(R.string.toast_cache_cleared))
+                },
+            )
             MeRow(
                 icon = Icons.Filled.Logout,
                 label = stringResource(R.string.me_logout),
@@ -288,12 +314,12 @@ private fun MeRow(
     label: String,
     value: String? = null,
     danger: Boolean = false,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(enabled = onClick != null, onClick = onClick ?: {})
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -318,10 +344,26 @@ private fun MeRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Icon(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (onClick != null) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
+}
+
+/** EA-4（docs/ANDROID-POLISH.md §EA-4）：版本行（登录/游客共用，取值 BuildConfig.VERSION_NAME）。 */
+@Composable
+private fun VersionLine() {
+    Text(
+        text = "SteamDeals v${BuildConfig.VERSION_NAME}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp),
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+    )
 }
