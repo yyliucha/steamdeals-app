@@ -33,6 +33,7 @@ coil-svg = { group = "io.coil-kt", name = "coil-svg", version.ref = "coil" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
 # 用 jar 坐标并在 coil-svg 上 exclude aar 变体（aar 的类 Kotlin 不可见，见 app/build.gradle.kts）

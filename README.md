@@ -53,6 +53,13 @@ SteamDeals 原生 Android 客户端（Kotlin + Jetpack Compose），与站点 We
     点开详情（进入即上报已读）、下拉刷新；
   - 游客可看公告，已读存本地 DataStore（重启保留）；登录后本地已读自动合并到服务端
     （`POST /api/app/announcements/read`，服务端幂等）。
+- **EG 批（站点 TODO EG，🐞 P1 通知角标已读不消失，docs/ANDROID-POLISH.md §EG）**：
+  - App 侧（本仓库）：`AnnouncementsState` 标记纪元守卫——打开弹层触发的列表请求若在「标记已读」之后
+    才返回（陈旧快照），只与内存已读**并集、不覆盖**（角标不回跳）；请求期间登录/退出/换账号则旧快照作废
+    （旧账号已读不串新账号）；状态与网络经 `AnnouncementsGateway` 缝解耦，JVM 单测用可控假网关复现
+    「陈旧快照晚到」竞态并锁死 B 递减 / C 归零不回跳（`AnnouncementsStateTest` 5 项）；
+  - 站点侧（gameprice 仓库）：`GET /api/announcements` 对 App（Bearer）登录用户补回服务端 readIds
+    （此前只认 Cookie 会话，App 用户恒拿到空 readIds——刷新即回跳的根因）。
 - **游客模式**：浏览不强制登录；点「感兴趣/不感兴趣/愿望单」弹「登录后才能使用该功能」；
   登录成功后回到原页面并**自动完成刚才的操作一次**（`pendingAction`，取消/失败清空、不循环）；
   「愿望单」「我的」未登录显示登录引导页。
@@ -88,7 +95,7 @@ keytool -printcert -jarfile app\build\outputs\apk\release\app-release.apk | find
 | 复制名口径（CM-4） | `ui/components/GameNameText.kt`（`nameCopyText`，与 Web utils/gameNames.js 同口径） |
 | 公告（DC） | `ui/notifications/AnnouncementsModel.kt`（未读/合并/级别/时间纯函数）、`AnnouncementsState.kt`（全局状态）、`AnnouncementsOverlay.kt`（列表弹层 + 详情）；入口：`HomeScreen.kt` 铃铛、`MeScreen.kt`「公告」；登录合并：`AppViewModel.onTokenLogin` |
 | 个人资料（CX/DQ） | `ui/profile/ProfileEditScreen.kt`（头像上传/移除、昵称简介主题、开关「到价提醒邮件 + 降价时发邮件提醒」、Steam 账号卡两行等宽按钮、统计三项卡片、底部弹层、换邮箱）；`ui/me/MeScreen.kt`（账号卡头像，无头像回退首字母 + 品牌色）；`data/api/ProfileRequests.kt`（路径/请求体/`avatarUrl` 只认 custom 纯函数） |
-| 单元测试 | `app/src/test/`（`NameListSerializerTest` / `PriceHistoryModelTest` / `GameNameTextTest` / `AnnouncementsModelTest` / `ProfileValidationTest` / `ProfileRequestsTest` / `ProfileInitialTest` / `UpdateManagerTest` / `HomeFilterParamsTest` / `OwnedByTextTest`，`gradlew testDebugUnitTest`） |
+| 单元测试 | `app/src/test/`（`NameListSerializerTest` / `PriceHistoryModelTest` / `GameNameTextTest` / `AnnouncementsModelTest` / `AnnouncementsStateTest` / `ProfileValidationTest` / `ProfileRequestsTest` / `ProfileInitialTest` / `UpdateManagerTest` / `HomeFilterParamsTest` / `OwnedByTextTest`，`gradlew testDebugUnitTest`） |
 | 内置更新 | `ui/update/UpdateManager.kt`、`UpdateDialogHost.kt`、`InstallResultReceiver.kt` |
 | 主题 | `ui/theme`（Material 3 + 品牌紫 `#8b82f5`、页面底色 `#0f1524`） |
 
