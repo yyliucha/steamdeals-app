@@ -40,6 +40,13 @@ class AnnouncementsState(
     /** 公告列表弹层开关（首页铃铛 / 「我的」入口共用）。 */
     val overlayVisible = MutableStateFlow(false)
 
+    /**
+     * DZ（站点 docs/ANDROID-POLISH.md §DZ）：标记在途闩——markRead/markAllRead 期间 refresh 不得用
+     * 持久化口径覆盖内存已读，否则「全部已读后立即下拉刷新」会在异步写入落盘/服务端返回前回跳角标。
+     * 同一 viewModelScope（主线程）内先置闩后取数，刷新恢复时读闩即可闭环竞态。
+     */
+    private var markInFlight = false
+
     init {
         // 登录 / 退出切换 → 已读口径切换（服务端 ↔ 本地），重新拉列表。
         // 初始值也会触发一次 → App 启动即拉公告，首页角标无需等用户操作。
@@ -57,17 +64,20 @@ class AnnouncementsState(
         overlayVisible.value = false
     }
 
-    /** 拉列表 + 按当前登录态定已读口径（游客本地 / 登录服务端）。失败静默保留旧数据。 */
+    /** 拉列表 + 按当前登录态定已读口径（游客本地 / 登录服务端）。失败静默保留旧数据。
+     *  DZ：标记在途时不覆盖内存已读（见 markInFlight 说明）。 */
     fun refresh() {
         scope.launch {
             loading.value = true
             try {
                 val resp = api.announcements()
                 announcements.value = resp.announcements
-                readIds.value = if (session.value.isLoggedIn) {
-                    resp.readIds.toSet()
-                } else {
-                    session.value.readAnnouncementIds.toSet()
+                if (!markInFlight) {
+                    readIds.value = if (session.value.isLoggedIn) {
+                        resp.readIds.toSet()
+                    } else {
+                        session.value.readAnnouncementIds.toSet()
+                    }
                 }
             } catch (_: Exception) {
                 // 网络失败不打扰（角标沿用上次数据）；下拉刷新可重试
@@ -82,9 +92,39 @@ class AnnouncementsState(
         if (id in readIds.value) return
         readIds.value = readIds.value + id
         if (session.value.isLoggedIn) {
-            scope.launch { runCatching { api.markAnnouncementsRead(listOf(id)) } }
+            markInFlight = true
+            scope.launch {
+                runCatching { api.markAnnouncementsRead(listOf(id)) }
+                markInFlight = false
+            }
         } else {
-            scope.launch { store.setReadAnnouncementIds(readIds.value.toList()) }
+            markInFlight = true
+            scope.launch {
+                runCatching { store.setReadAnnouncementIds(readIds.value.toList()) }
+                markInFlight = false
+            }
+        }
+    }
+
+    /**
+     * DZ：全部已读——当前 active 未读一次批量上报（登录 → 服务端 markAnnouncementsRead；
+     * 游客 → 本地 DataStore）。先改内存 → 角标立即消失；刷新/重进/重启后持久化口径兜底不复现。
+     */
+    fun markAllRead() {
+        val unread = AnnouncementsModel.unreadIds(announcements.value.map { it.id }, readIds.value)
+        if (unread.isEmpty()) return
+        readIds.value = readIds.value + unread
+        markInFlight = true
+        if (session.value.isLoggedIn) {
+            scope.launch {
+                runCatching { api.markAnnouncementsRead(unread) }
+                markInFlight = false
+            }
+        } else {
+            scope.launch {
+                runCatching { store.setReadAnnouncementIds(readIds.value.toList()) }
+                markInFlight = false
+            }
         }
     }
 

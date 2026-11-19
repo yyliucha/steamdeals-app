@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,12 +47,15 @@ import cn.yyliucha.steamdeals.ui.AppViewModel
 import cn.yyliucha.steamdeals.ui.components.Badge
 import cn.yyliucha.steamdeals.ui.components.EmptyBox
 import cn.yyliucha.steamdeals.ui.components.LoadingBox
+import cn.yyliucha.steamdeals.ui.components.toast
 import cn.yyliucha.steamdeals.ui.theme.BrandPurple
 
 /**
  * DC（站点 TODO DC，APP-PARITY §65 CM-6）公告列表弹层：全屏弹层，铃铛与「我的 → 公告」共用。
  * 列表行 = 级别色点 + 标题 + 时间 + 已读态；点开详情（进入即上报已读 → 角标递减）；下拉刷新。
  * 游客可看（登录用户 readIds 服务端、游客本地）。
+ * DZ（站点 docs/ANDROID-POLISH.md §DZ）：弹层头部显示「未读 N 条」+「全部已读」按钮——
+ * 批量标记（登录服务端 / 游客本地 DataStore），角标立即消失；不做「打开列表自动全标」。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +67,8 @@ fun AnnouncementsOverlay(vm: AppViewModel) {
     val announcements by state.announcements.collectAsState()
     val readIds by state.readIds.collectAsState()
     val loading by state.loading.collectAsState()
+    val unreadCount by state.unreadCount.collectAsState()
+    val context = LocalContext.current
     var selectedId by remember { mutableStateOf<Long?>(null) }
     val selected = announcements.firstOrNull { it.id == selectedId }
 
@@ -88,6 +94,22 @@ fun AnnouncementsOverlay(vm: AppViewModel) {
                             .weight(1f)
                             .padding(start = 12.dp),
                     )
+                    if (selected == null && unreadCount > 0) {
+                        // DZ：未读计数 + 全部已读（有未读才显示；点后角标立即消失 + toast）
+                        Text(
+                            text = stringResource(R.string.notif_unread_count, unreadCount),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                state.markAllRead()
+                                toast(context, context.getString(R.string.toast_all_marked_read))
+                            },
+                        ) {
+                            Text(stringResource(R.string.notif_mark_all_read))
+                        }
+                    }
                     IconButton(onClick = { state.close() }) {
                         Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.back))
                     }

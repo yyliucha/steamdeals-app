@@ -252,12 +252,13 @@
     <string name="update_install_confirm">已下载完成，请在系统弹窗中确认安装</string>
     <string name="update_install_denied">需要允许安装未知来源应用，请在系统设置中开启</string>
 
-    <!-- 公告（DC，站点 TODO DC / APP-PARITY §65 CM-6） -->
+    <!-- 公告（DC，站点 TODO DC / APP-PARITY §65 CM-6；DZ 全部已读） -->
     <string name="notif_title">公告</string>
     <string name="notif_empty">暂无公告</string>
     <string name="notif_unread">未读</string>
     <string name="notif_read">已读</string>
     <string name="notif_unread_count">%1$d 条未读</string>
+    <string name="notif_mark_all_read">全部已读</string>
     <string name="notif_detail">公告详情</string>
     <string name="notif_no_body">暂无正文。</string>
 
@@ -284,4 +285,5 @@
     <string name="toast_uninterested">已标记不感兴趣</string>
     <string name="toast_op_failed">操作失败，请稍后再试</string>
     <string name="toast_logged_out">已退出登录</string>
+    <string name="toast_all_marked_read">已全部标记为已读</string>
 </resources>

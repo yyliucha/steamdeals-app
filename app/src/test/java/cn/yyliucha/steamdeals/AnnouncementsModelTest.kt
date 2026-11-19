@@ -11,6 +11,7 @@ import org.junit.Test
 /**
  * DC（站点 TODO DC，APP-PARITY §65 CM-6）单测：公告纯口径——
  * 未读 = active 中不在 readIds 的；合并 = 服务端 ∪ 本地；级别映射；UTC→Asia/Shanghai 时间。
+ * DZ（站点 docs/ANDROID-POLISH.md §DZ）：「全部已读」批量口径 = 当前 active 未读全量、幂等。
  * 反向自检：把 unreadIds 的 filterNot 改成 filter → 全部未读用例红；
  * 把 formatTime 的 +8 改成 +0 → 「北京 10:00」用例红。
  */
@@ -30,6 +31,36 @@ class AnnouncementsModelTest {
     @Test
     fun `全部已读未读为零`() {
         assertEquals(0, AnnouncementsModel.unreadCount(listOf(1L, 2L), setOf(1L, 2L, 99L)))
+    }
+
+    // ---- DZ：全部已读批量口径 ----
+
+    @Test
+    fun `全部已读批量标记以当前active未读为准`() {
+        // 未点过任何公告：批量 = 全部 active（保持列表顺序）
+        assertEquals(
+            listOf(1L, 2L, 3L),
+            AnnouncementsModel.unreadIds(listOf(1L, 2L, 3L), emptySet()),
+        )
+        // 已读了一部分：批量只补剩余未读
+        assertEquals(
+            listOf(2L),
+            AnnouncementsModel.unreadIds(listOf(1L, 2L), setOf(1L)),
+        )
+    }
+
+    @Test
+    fun `全部已读幂等且含过期已读id不影响批量口径`() {
+        // 全部已读后再点「全部已读」：批量为空（幂等，不重复上报）
+        assertEquals(
+            emptyList<Long>(),
+            AnnouncementsModel.unreadIds(listOf(1L, 2L), setOf(1L, 2L, 999L)),
+        )
+        // 已删除公告的历史已读 id 不参与 active 未读计算
+        assertEquals(
+            listOf(5L),
+            AnnouncementsModel.unreadIds(listOf(5L), setOf(999L)),
+        )
     }
 
     @Test
