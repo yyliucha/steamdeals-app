@@ -41,11 +41,12 @@ object ProfileRequests {
         }.toString()
 
     /**
-     * 头像展示地址：无头像来源 → null（UI 回退首字）；否则 /api/avatar/:userId（custom 直接出图，
-     * steam:<id> 由服务端 302 到 Steam CDN）。带 avatarUpdatedAt 作缓存破坏参数。
+     * 头像展示地址（DQ，docs/PROFILE-UI-2026-11-19.md 决策 1/3）：只有 custom 走 /api/avatar/:userId；
+     * 其余（null / 已退役的 steam:）一律返回 null——UI 回退昵称首字母/首个汉字 + 品牌色。
+     * 带 avatarUpdatedAt 作缓存破坏参数。
      */
     fun avatarUrl(baseUrl: String, userId: Long, avatarSource: String?, avatarUpdatedAt: String?): String? {
-        if (avatarSource.isNullOrBlank()) return null
+        if (avatarSource != "custom") return null
         val base = baseUrl.trimEnd('/')
         val v = avatarUpdatedAt?.takeIf { it.isNotBlank() } ?: "0"
         return "$base/api/avatar/$userId?v=$v"

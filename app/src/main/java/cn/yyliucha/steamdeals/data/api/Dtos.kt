@@ -329,6 +329,13 @@ data class AvatarUploadResponse(
     val avatarUpdatedAt: String? = null,
 )
 
+/** DQ（docs/PROFILE-UI-2026-11-19.md §3）：设为默认只写 default_steam_id——响应不再联动头像。 */
+@Serializable
+data class SteamDefaultResponse(
+    val ok: Boolean = false,
+    val defaultSteamId: String? = null,
+)
+
 @Serializable
 data class SteamAccountDto(
     val steamId: String,

@@ -134,8 +134,8 @@ class SteamDealsApi(private val client: ApiClient) {
     /** 我的游戏库与统计（每账号一卡 + 5 项汇总）。 */
     suspend fun meLibrary(): MeLibraryResponse = client.parse(client.get(ProfileRequests.PATH_LIBRARY))
 
-    /** 设为默认 Steam 账号（头像默认取该账号）。 */
-    suspend fun steamAccountDefault(steamId: String): AvatarUploadResponse = client.parse(
+    /** 设为默认 Steam 账号（DQ：只写 default_steam_id，头像不变）。 */
+    suspend fun steamAccountDefault(steamId: String): SteamDefaultResponse = client.parse(
         client.post(ProfileRequests.steamAccountPath(steamId, "default")),
     )
 

@@ -87,7 +87,8 @@ keytool -printcert -jarfile app\build\outputs\apk\release\app-release.apk | find
 | 价格历史口径（CM-3） | `ui/components/PriceHistoryModel.kt`（区间/指标纯函数）、`PriceHistoryChart.kt`（Canvas 趋势线） |
 | 复制名口径（CM-4） | `ui/components/GameNameText.kt`（`nameCopyText`，与 Web utils/gameNames.js 同口径） |
 | 公告（DC） | `ui/notifications/AnnouncementsModel.kt`（未读/合并/级别/时间纯函数）、`AnnouncementsState.kt`（全局状态）、`AnnouncementsOverlay.kt`（列表弹层 + 详情）；入口：`HomeScreen.kt` 铃铛、`MeScreen.kt`「公告」；登录合并：`AppViewModel.onTokenLogin` |
-| 单元测试 | `app/src/test/`（`NameListSerializerTest` / `PriceHistoryModelTest` / `GameNameTextTest` / `AnnouncementsModelTest` / `ProfileValidationTest` / `ProfileRequestsTest`，`gradlew testDebugUnitTest`） |
+| 个人资料（CX/DQ） | `ui/profile/ProfileEditScreen.kt`（头像上传/移除、昵称简介主题、开关「到价提醒邮件 + 降价时发邮件提醒」、Steam 账号卡两行等宽按钮、统计三项卡片、底部弹层、换邮箱）；`ui/me/MeScreen.kt`（账号卡头像，无头像回退首字母 + 品牌色）；`data/api/ProfileRequests.kt`（路径/请求体/`avatarUrl` 只认 custom 纯函数） |
+| 单元测试 | `app/src/test/`（`NameListSerializerTest` / `PriceHistoryModelTest` / `GameNameTextTest` / `AnnouncementsModelTest` / `ProfileValidationTest` / `ProfileRequestsTest` / `ProfileInitialTest` / `UpdateManagerTest` / `HomeFilterParamsTest` / `OwnedByTextTest`，`gradlew testDebugUnitTest`） |
 | 内置更新 | `ui/update/UpdateManager.kt`、`UpdateDialogHost.kt`、`InstallResultReceiver.kt` |
 | 主题 | `ui/theme`（Material 3 + 品牌紫 `#8b82f5`、页面底色 `#0f1524`） |
 

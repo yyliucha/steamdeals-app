@@ -55,9 +55,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val storePublic: cn.yyliucha.steamdeals.data.store.SessionStore = store
     val apiPublic: cn.yyliucha.steamdeals.data.api.SteamDealsApi = api
 
-    /** 登录成功落库（LoginScreen 用）。DC：随后把游客本地已读公告合并到服务端并刷新口径。 */
+    /** 登录成功落库（LoginScreen 用）。DC：随后把游客本地已读公告合并到服务端并刷新口径。
+     *  DQ：token 响应不含 displayName 等资料字段，登录后补拉 /api/me 刷新会话用户，
+     *  「我的」页头像才能按昵称首字母/首个汉字回退（与资料页头像一致）。 */
     suspend fun onTokenLogin(response: cn.yyliucha.steamdeals.data.api.TokenResponse) {
         locator.sessionManager.onTokenLogin(response)
+        locator.sessionManager.refreshUser()
         announcementsState.mergeLocalReadsToServer()
         announcementsState.refresh()
     }

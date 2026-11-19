@@ -105,10 +105,12 @@ fun cropToSquare(src: Bitmap, size: Int): Bitmap {
     }
 }
 
-/** 头像/账号首字（显示名 → 用户名 → 'S'）。 */
+/** 头像/账号首字（显示名 → 用户名 → 'S'）：昵称首字母英文大写 / 第一个汉字（DQ 与 Web utils/avatar.js 同口径）。 */
 fun initialOf(name: String?): String {
     val s = name?.trim().orEmpty()
-    return if (s.isEmpty()) "S" else s.substring(0, 1).uppercase()
+    if (s.isEmpty()) return "S"
+    val first = String(Character.toChars(s.codePointAt(0)))
+    return first.uppercase()
 }
 
 /** 资料页状态：表单 + 账号卡 + 统计 + 弹窗条目（网络操作都收敛到这里）。 */
@@ -262,11 +264,11 @@ class ProfileEditState(
     }
 
     fun setDefault(a: SteamAccountDto) {
-        if (avatarSource.value == "steam:${a.steamId}") return
+        if (a.isDefault) return
         appScope.launch {
             try {
-                val resp = api.steamAccountDefault(a.steamId)
-                avatarSource.value = resp.avatarSource
+                // DQ（docs/PROFILE-UI-2026-11-19.md §3）：只写 default_steam_id，头像不变
+                api.steamAccountDefault(a.steamId)
                 toast(vm.getApplication(), "已将「${a.name}」设为默认账号")
                 load()
             } catch (e: ApiException) {
@@ -595,22 +597,6 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
                                 .padding(vertical = 4.dp),
                         )
                     }
-                    // 三个头像来源 chips：各 Steam 账号 + 自定义
-                    Row(
-                        modifier = Modifier.padding(top = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        accounts.forEach { a ->
-                            AvatarSourceChip(
-                                label = a.name ?: a.steamId,
-                                selected = avatarSource == "steam:${a.steamId}",
-                            ) { state.setDefault(a) }
-                        }
-                        AvatarSourceChip(
-                            label = stringResource(R.string.profile_avatar_custom),
-                            selected = avatarSource == "custom",
-                        ) { pickImage.launch("image/*") }
-                    }
                 }
 
                 // ---- 基本信息 ----
@@ -733,13 +719,14 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
                             Text("▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    FieldRow(label = stringResource(R.string.profile_email_alerts)) {
+                    // DQ 决策 5：开关标签「到价提醒邮件」+ 副说明「降价时发邮件提醒」（与 Web 同套布局）
+                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = if (emailAlerts) stringResource(R.string.profile_on) else stringResource(R.string.profile_off),
+                                text = stringResource(R.string.profile_email_alerts),
                                 style = MaterialTheme.typography.bodyLarge,
                                 modifier = Modifier.weight(1f),
                             )
@@ -751,6 +738,12 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
                                 },
                             )
                         }
+                        Text(
+                            text = stringResource(R.string.profile_email_alerts_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
                     }
                 }
 
@@ -778,19 +771,35 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
                     }
                 }
 
-                // ---- 我的统计 ----
+                // ---- 我的统计（DQ 决策 4：已拥有/愿望单合计放标题行，卡片只留三项） ----
                 SectionCard(title = stringResource(R.string.profile_stats_title)) {
                     Text(
-                        text = listOf(
-                            "${stringResource(R.string.profile_stat_owned)} ${stats.ownedTotal}",
+                        text = "${stringResource(R.string.profile_stat_owned)} ${stats.ownedTotal} · " +
                             "${stringResource(R.string.profile_stat_wishlist)} ${stats.wishlistTotal}",
-                            "${stringResource(R.string.profile_stat_site_wishlist)} ${stats.siteWishlist}",
-                            "${stringResource(R.string.profile_stat_alerts)} ${stats.alerts}",
-                            "${stringResource(R.string.profile_stat_hist_hits)} ${stats.histLowHits}",
-                        ).joinToString(" · "),
-                        style = MaterialTheme.typography.bodyMedium,
-                        lineHeight = 24.sp,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 10.dp),
                     )
+                    Row(
+                        modifier = Modifier.padding(top = 8.dp, bottom = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        StatBox(
+                            label = stringResource(R.string.profile_stat_site_wishlist),
+                            value = stats.siteWishlist.toString(),
+                            modifier = Modifier.weight(1f),
+                        )
+                        StatBox(
+                            label = stringResource(R.string.profile_stat_alerts),
+                            value = stats.alerts.toString(),
+                            modifier = Modifier.weight(1f),
+                        )
+                        StatBox(
+                            label = stringResource(R.string.profile_stat_hist_hits),
+                            value = stats.histLowHits.toString(),
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -893,26 +902,6 @@ private fun EmptyLoginGuide(navController: NavHostController) {
         ) {
             Text(stringResource(R.string.login_required_go))
         }
-    }
-}
-
-@Composable
-private fun AvatarSourceChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = if (selected) BrandPurple.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant,
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (selected) BrandPurple else MaterialTheme.colorScheme.outlineVariant,
-        ),
-        modifier = Modifier.clickable(onClick = onClick),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = if (selected) BrandPurple else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-        )
     }
 }
 
@@ -1102,18 +1091,37 @@ private fun AccountCard(
                 Spacer(modifier = Modifier.width(16.dp))
                 StatCell(label = stringResource(R.string.profile_stat_wishlist), value = account.wishlist.toString())
             }
+            // DQ 决策 3：两行等宽按钮——行1 查看已拥有/查看愿望单；行2 设为默认（已默认禁用）/解绑（红字）
             Row(
                 modifier = Modifier.padding(top = 7.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                OutlinedButton(onClick = onOpenLibrary) { Text(stringResource(R.string.profile_view_owned)) }
-                OutlinedButton(onClick = onOpenWishlist) { Text(stringResource(R.string.profile_view_wishlist)) }
-                if (!account.isDefault) {
-                    OutlinedButton(onClick = onSetDefault) { Text(stringResource(R.string.profile_set_default)) }
+                OutlinedButton(onClick = onOpenLibrary, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.profile_view_owned))
+                }
+                OutlinedButton(onClick = onOpenWishlist, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.profile_view_wishlist))
+                }
+            }
+            Row(
+                modifier = Modifier.padding(top = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onSetDefault,
+                    enabled = !account.isDefault,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        stringResource(
+                            if (account.isDefault) R.string.profile_already_default else R.string.profile_set_default,
+                        ),
+                    )
                 }
                 OutlinedButton(
                     onClick = onUnbind,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
+                    modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.profile_unbind)) }
             }
         }
@@ -1132,6 +1140,28 @@ private fun StatCell(label: String, value: String) {
             text = value,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+/** DQ 决策 4：统计三项小卡片（本站愿望单/到价提醒/史低命中），等宽排一行。 */
+@Composable
+private fun StatBox(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 2.dp),
         )
     }
 }

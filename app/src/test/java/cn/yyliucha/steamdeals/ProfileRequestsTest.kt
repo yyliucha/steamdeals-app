@@ -50,16 +50,18 @@ class ProfileRequestsTest {
     }
 
     @Test
-    fun `头像地址：无来源返回 null（回退首字）；有来源带缓存破坏参数`() {
+    fun `头像地址：只有 custom 走 api-avatar（DQ 解耦）；其余来源回退首字`() {
         assertNull(ProfileRequests.avatarUrl("https://sd.yyliucha.cn", 7, null, null))
         assertNull(ProfileRequests.avatarUrl("https://sd.yyliucha.cn", 7, "", "x"))
+        // DQ：退役的 steam: 来源不再出图（UI 回退首字母 + 品牌色）
+        assertNull(ProfileRequests.avatarUrl("https://sd.yyliucha.cn", 7, "steam:76561198000000001", null))
         assertEquals(
             "https://sd.yyliucha.cn/api/avatar/7?v=2026-11-18T00:00:00.000Z",
             ProfileRequests.avatarUrl("https://sd.yyliucha.cn", 7, "custom", "2026-11-18T00:00:00.000Z"),
         )
         assertEquals(
             "https://sd.yyliucha.cn/api/avatar/7?v=0",
-            ProfileRequests.avatarUrl("https://sd.yyliucha.cn/", 7, "steam:76561198000000001", null),
+            ProfileRequests.avatarUrl("https://sd.yyliucha.cn/", 7, "custom", null),
         )
     }
 

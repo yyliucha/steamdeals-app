@@ -165,12 +165,11 @@
     <!-- 编辑资料（CX，docs/USER-PROFILE-EDIT.md） -->
     <string name="me_profile">编辑资料</string>
     <string name="profile_title">编辑资料</string>
-    <string name="profile_avatar_tip">默认头像可切换（Steam 账号 / 自定义）</string>
+    <string name="profile_avatar_tip">未上传时显示昵称首字母/首个汉字</string>
     <string name="profile_avatar_change">更换头像</string>
     <string name="profile_avatar_remove">移除</string>
-    <string name="profile_avatar_custom">自定义</string>
     <string name="profile_avatar_remove_title">移除头像</string>
-    <string name="profile_avatar_remove_hint">移除后显示昵称首字，也可以重新选择 Steam 账号或上传自定义头像。</string>
+    <string name="profile_avatar_remove_hint">移除后显示昵称首字母/首个汉字，也可以重新上传自定义头像。</string>
     <string name="profile_basic">基本信息</string>
     <string name="profile_nickname">昵称</string>
     <string name="profile_nickname_hint">2–20 个字符</string>
@@ -182,6 +181,7 @@
     <string name="profile_steam_hint">解绑只停止后续检测，历史「曾拥有」记录保留。新增绑定在浏览器完成。</string>
     <string name="profile_prefs_title">偏好与通知</string>
     <string name="profile_email_alerts">到价提醒邮件</string>
+    <string name="profile_email_alerts_desc">降价时发邮件提醒</string>
     <string name="profile_on">开启</string>
     <string name="profile_off">关闭</string>
     <string name="profile_library_title">我的游戏库</string>
@@ -194,6 +194,7 @@
     <string name="profile_stat_hist_hits">史低命中</string>
     <string name="profile_default">默认</string>
     <string name="profile_set_default">设为默认</string>
+    <string name="profile_already_default">已设为默认</string>
     <string name="profile_unbind">解绑</string>
     <string name="profile_unbind_title">确认解绑</string>
     <string name="profile_unbind_hint">解绑「%1$s」？该账号的游戏库与愿望单数据会被删除；历史「曾拥有」记录保留。</string>

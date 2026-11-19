@@ -1,7 +1,9 @@
 package cn.yyliucha.steamdeals.ui.me
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,7 +23,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -40,17 +41,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import cn.yyliucha.steamdeals.R
 import cn.yyliucha.steamdeals.ui.AppViewModel
 import cn.yyliucha.steamdeals.ui.Routes
 import cn.yyliucha.steamdeals.ui.components.Badge
 import cn.yyliucha.steamdeals.ui.components.toast
+import cn.yyliucha.steamdeals.ui.profile.initialOf
 import cn.yyliucha.steamdeals.ui.theme.BrandPurple
 import cn.yyliucha.steamdeals.ui.wishlist.LoginGuide
 import coil.compose.AsyncImage
@@ -79,12 +85,18 @@ fun MeScreen(vm: AppViewModel, navController: NavHostController) {
     // DC：公告未读数（「我的 → 公告」入口展示，0 不显示）
     val unreadAnnouncements by vm.announcementsState.unreadCount.collectAsState()
 
+    // DQ：进入「我的」即补拉 /api/me 刷新会话用户——token 响应不含 displayName，
+    // 头像回退（昵称首字母/首个汉字）需要昵称在场，与资料页头像口径一致。
+    androidx.compose.runtime.LaunchedEffect(session.isLoggedIn) {
+        if (session.isLoggedIn) vm.refreshUser()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
     ) {
-        // 账号卡片（CX 批：头像有则显示 /api/avatar，无则回退 Person 图标；点击进编辑资料）
+        // 账号卡片（CX 批：头像有则显示 /api/avatar；DQ 批：无头像回退昵称首字母/首个汉字 + 品牌色圆底；点击进编辑资料）
         Surface(
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
             modifier = Modifier
@@ -112,12 +124,20 @@ fun MeScreen(vm: AppViewModel, navController: NavHostController) {
                         contentScale = ContentScale.Crop,
                     )
                 } else {
-                    Icon(
-                        Icons.Filled.Person,
-                        contentDescription = null,
-                        tint = BrandPurple,
-                        modifier = Modifier.size(44.dp),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(BrandPurple, Color(0xFF5F49D3)))),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = initialOf(user?.displayName ?: user?.username),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                        )
+                    }
                 }
                 Column(modifier = Modifier.padding(start = 12.dp)) {
                     Text(
