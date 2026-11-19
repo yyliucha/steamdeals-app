@@ -121,8 +121,10 @@ fun AppRoot(vm: AppViewModel) {
     Scaffold(
         bottomBar = {
             // EA-6（docs/ANDROID-POLISH.md §EA-6）：全局弱网提示条（非阻塞，位于底栏上方；可重试）
-            NetworkBanner(vm)
-            if (currentRoute in Routes.TAB_ROUTES) {
+            // 注意：bottomBar 槽位是单 Slot，必须用 Column 纵向排列，否则横幅与底栏重叠被遮挡。
+            androidx.compose.foundation.layout.Column {
+                NetworkBanner(vm)
+                if (currentRoute in Routes.TAB_ROUTES) {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     tabs.forEach { tab ->
                         NavigationBarItem(
@@ -140,6 +142,7 @@ fun AppRoot(vm: AppViewModel) {
                             label = { Text(stringResource(tab.labelRes)) },
                         )
                     }
+                }
                 }
             }
         },
