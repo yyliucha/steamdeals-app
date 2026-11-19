@@ -82,7 +82,8 @@
     <string name="badge_wishlisted">愿望单</string>
 
     <!-- 详情 -->
-    <string name="detail_metric_current">当前最低</string>    <string name="detail_metric_hist">历史最低</string>
+    <string name="detail_metric_current">当前最低</string>
+    <string name="detail_share">分享</string>    <string name="detail_metric_hist">历史最低</string>
     <string name="detail_metric_discount">折扣</string>
     <string name="detail_section_offers">各区服报价</string>
     <string name="detail_section_history">价格历史</string>

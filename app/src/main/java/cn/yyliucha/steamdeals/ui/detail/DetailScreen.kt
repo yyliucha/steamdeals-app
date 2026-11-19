@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
@@ -81,6 +82,7 @@ import cn.yyliucha.steamdeals.ui.components.formatPrice
 import cn.yyliucha.steamdeals.ui.components.nameCopyText
 import cn.yyliucha.steamdeals.ui.components.openCustomTab
 import cn.yyliucha.steamdeals.ui.components.ownedByFullText
+import cn.yyliucha.steamdeals.ui.components.shareGame
 import cn.yyliucha.steamdeals.ui.components.steamImageUrl
 import cn.yyliucha.steamdeals.ui.components.steamStoreUrl
 import cn.yyliucha.steamdeals.ui.components.toast
@@ -202,6 +204,17 @@ fun DetailScreen(vm: AppViewModel, navController: NavHostController, appid: Long
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                    }
+                },
+                actions = {
+                    // EA-3（docs/ANDROID-POLISH.md §EA-3）：系统分享（游戏名 + 站点链接）
+                    if (detail != null) {
+                        IconButton(onClick = { shareGame(context, detail.game.name) }) {
+                            Icon(
+                                Icons.Filled.Share,
+                                contentDescription = stringResource(R.string.detail_share),
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

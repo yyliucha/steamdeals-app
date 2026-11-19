@@ -188,3 +188,21 @@ fun openCustomTab(context: android.content.Context, url: String?) {
             .launchUrl(context, uri)
     }
 }
+
+/** EA-3（docs/ANDROID-POLISH.md §EA-3）：系统分享——游戏名 + 站点链接（站点 ?q= 直达搜索结果页）。 */
+fun shareGame(context: android.content.Context, name: String?) {
+    val base = BuildConfig.API_BASE_URL.trimEnd('/')
+    val url = if (name.isNullOrBlank()) {
+        "$base/"
+    } else {
+        "$base/?q=${java.net.URLEncoder.encode(name, "UTF-8")}"
+    }
+    val text = if (name.isNullOrBlank()) "SteamDeals 游戏比价 $url" else "《$name》SteamDeals 比价 $url"
+    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(android.content.Intent.EXTRA_TEXT, text)
+    }
+    runCatching {
+        context.startActivity(android.content.Intent.createChooser(intent, null))
+    }
+}
