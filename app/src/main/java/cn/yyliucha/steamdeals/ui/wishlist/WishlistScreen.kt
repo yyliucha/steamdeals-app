@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Button
@@ -22,8 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -61,6 +62,16 @@ class WishlistScreenState(vm: AppViewModel, private val appScope: CoroutineScope
     val error = MutableStateFlow<String?>(null)
     var page = 1
     var pages = 1
+
+    /** DY：账号切换（登录/退出）时复位，避免闪现上一账号的愿望单。 */
+    fun reset() {
+        games.value = emptyList()
+        filter.value = WishlistFilter.ALL
+        loading.value = false
+        error.value = null
+        page = 1
+        pages = 1
+    }
 
     val displayed = combine(games, filter) { games, f ->
         when (f) {
@@ -110,10 +121,13 @@ fun WishlistScreen(vm: AppViewModel, navController: NavHostController) {
     val appScope = rememberCoroutineScope()
     val context = LocalContext.current
     val session by vm.session.collectAsState()
-    val state = remember { WishlistScreenState(vm, appScope) }
+    // DY（docs/ANDROID-POLISH.md §DY）：愿望单数据/筛选提升到 AppViewModel；
+    // 滚动位置 rememberSaveable（进详情/切 Tab 返回保持位置）。
+    val state = vm.wishlistState
     val displayed by state.displayed.collectAsState()
     val loading by state.loading.collectAsState()
     val filter by state.filter.collectAsState()
+    val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
 
     LaunchedEffect(session.isLoggedIn) {
         if (session.isLoggedIn) state.refresh()
@@ -154,6 +168,7 @@ fun WishlistScreen(vm: AppViewModel, navController: NavHostController) {
             loading && displayed.isEmpty() -> LoadingBox()
             displayed.isEmpty() -> EmptyBox(stringResource(R.string.wishlist_empty))
             else -> LazyColumn(
+                state = listState,
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxSize(),

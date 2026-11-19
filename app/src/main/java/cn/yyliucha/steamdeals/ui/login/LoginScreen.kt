@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,10 +77,12 @@ fun LoginScreen(vm: AppViewModel, navController: NavHostController) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    var username by remember { mutableStateOf(LoginPrefill.username ?: "") }
+    // DY（docs/ANDROID-POLISH.md §DY）：用户名/记住我 rememberSaveable（旋转不丢）；
+    // 密码与图形验证码答案按安全惯例**不**落 saveable，captcha/loading/error 为瞬时状态（见规格 §DY 实现说明）。
+    var username by rememberSaveable { mutableStateOf(LoginPrefill.username ?: "") }
     var password by remember { mutableStateOf("") }
     var captchaAnswer by remember { mutableStateOf("") }
-    var rememberMe by remember { mutableStateOf(true) }
+    var rememberMe by rememberSaveable { mutableStateOf(true) }
     var captcha by remember { mutableStateOf<CaptchaResponse?>(null) }
     var loading by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf<String?>(null) }
@@ -176,7 +180,7 @@ fun LoginScreen(vm: AppViewModel, navController: NavHostController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) })
                 .padding(horizontal = 24.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

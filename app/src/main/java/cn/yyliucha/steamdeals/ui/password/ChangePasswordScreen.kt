@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -26,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -51,6 +53,9 @@ fun ChangePasswordScreen(vm: AppViewModel, navController: NavHostController) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
+    // DY（docs/ANDROID-POLISH.md §DY）：本页三个输入全是密码类字段，按安全惯例**不**落 rememberSaveable
+    // （不入系统保存状态）；loading/error/mustChange 为瞬时状态，同样用 remember。
+    // 旋转后密码需重输属预期行为（见规格 §DY 实现说明）。
     var oldPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
@@ -106,7 +111,7 @@ fun ChangePasswordScreen(vm: AppViewModel, navController: NavHostController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) })
                 .padding(horizontal = 24.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

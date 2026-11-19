@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -43,6 +44,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +54,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import cn.yyliucha.steamdeals.R
@@ -78,10 +85,13 @@ import cn.yyliucha.steamdeals.ui.components.steamStoreUrl
 import cn.yyliucha.steamdeals.ui.components.toast
 import cn.yyliucha.steamdeals.ui.theme.BrandPurple
 import cn.yyliucha.steamdeals.ui.theme.SuccessGreen
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-class DetailScreenState(vm: AppViewModel, private val appScope: CoroutineScope, private val appid: Long) {
+/**
+ * DY（站点 docs/ANDROID-POLISH.md §DY）：详情状态转 NavBackStackEntry 级 ViewModel——
+ * 旋转屏幕不再整页重拉（detail/DLC/加载态随 ViewModel 存活）；返回栈弹出自动清理。
+ */
+class DetailScreenState(private val vm: AppViewModel, private val appid: Long) : ViewModel() {
     private val api = vm.apiPublic
 
     var detail by mutableStateOf<GameDetailResponse?>(null)
@@ -95,7 +105,7 @@ class DetailScreenState(vm: AppViewModel, private val appScope: CoroutineScope, 
     var dlcError by mutableStateOf(false)
 
     fun refresh() {
-        appScope.launch {
+        viewModelScope.launch {
             loading = true
             error = null
             try {
@@ -115,7 +125,7 @@ class DetailScreenState(vm: AppViewModel, private val appScope: CoroutineScope, 
     /** CM-2：DLC 分页 10 条/页（对齐 Web GAME-DLC.md §3.4），每次请求整页、不追加。 */
     fun loadDlcPage(page: Int) {
         if (dlcLoading) return
-        appScope.launch {
+        viewModelScope.launch {
             dlcLoading = true
             dlcError = false
             try {
@@ -139,7 +149,11 @@ class DetailScreenState(vm: AppViewModel, private val appScope: CoroutineScope, 
 fun DetailScreen(vm: AppViewModel, navController: NavHostController, appid: Long) {
     val appScope = rememberCoroutineScope()
     val context = LocalContext.current
-    val state = remember(appid) { DetailScreenState(vm, appScope, appid) }
+    // DY：详情状态走 NavBackStackEntry 级 ViewModel（按 appid 键控），旋转不重拉、返回栈弹出自动清理。
+    val state: DetailScreenState = viewModel(
+        key = "detail-$appid",
+        factory = viewModelFactory { initializer { DetailScreenState(vm, appid) } },
+    )
     val session by vm.session.collectAsState()
     val detail = state.detail
 
@@ -372,12 +386,17 @@ fun DetailScreen(vm: AppViewModel, navController: NavHostController, appid: Long
                 modifier = Modifier.padding(padding),
             )
             detail == null -> LoadingBox(Modifier.padding(padding))
-            else -> DetailContent(
-                detail = detail,
-                state = state,
-                context = context,
-                modifier = Modifier.padding(padding),
-            )
+            else -> {
+                // DY：详情正文滚动位置 rememberSaveable（旋转不丢）。
+                val detailListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+                DetailContent(
+                    detail = detail,
+                    state = state,
+                    context = context,
+                    listState = detailListState,
+                    modifier = Modifier.padding(padding),
+                )
+            }
         }
     }
 }
@@ -425,6 +444,7 @@ private fun DetailContent(
     detail: GameDetailResponse,
     state: DetailScreenState,
     context: android.content.Context,
+    listState: LazyListState,
     modifier: Modifier = Modifier,
 ) {
     val game = detail.game
@@ -432,6 +452,7 @@ private fun DetailContent(
         game.current_low < game.prev_hist_low
 
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp),
     ) {
@@ -720,7 +741,8 @@ private fun copyGameNameToClipboard(context: android.content.Context, name: Stri
  */
 @Composable
 private fun PriceHistorySection(game: cn.yyliucha.steamdeals.data.api.GameDto, series: List<cn.yyliucha.steamdeals.data.api.SeriesPoint>) {
-    var range by remember(series) { mutableStateOf(PriceHistoryModel.DEFAULT_RANGE) }
+    // DY：区间选择 rememberSaveable（旋转后保持所选区间）；其余为纯派生计算（remember 缓存，非状态）。
+    var range by rememberSaveable(series) { mutableStateOf(PriceHistoryModel.DEFAULT_RANGE) }
     val filtered = remember(series, range) { PriceHistoryModel.filterRange(series, range) }
     val histLow = remember(series) { PriceHistoryModel.histLow(series) }
     val lowDays = remember(series) { PriceHistoryModel.lowDays(series) }

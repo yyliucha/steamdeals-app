@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -33,6 +34,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,8 +65,11 @@ fun RegisterScreen(vm: AppViewModel, navController: NavHostController) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    var username by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
+    // DY（docs/ANDROID-POLISH.md §DY）：非敏感输入 rememberSaveable（旋转/返回不丢）；
+    // 密码/确认密码/图形验证码答案/邮箱验证码按安全惯例**不**落 saveable（不入系统保存状态），
+    // 旋转后需重输属预期行为（见规格 §DY 实现说明）。
+    var username by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
     var captchaAnswer by remember { mutableStateOf("") }
@@ -216,7 +221,7 @@ fun RegisterScreen(vm: AppViewModel, navController: NavHostController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) })
                 .padding(horizontal = 24.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

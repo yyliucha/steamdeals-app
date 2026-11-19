@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -54,6 +55,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -135,6 +137,24 @@ class ProfileEditState(
     val accounts = MutableStateFlow<List<SteamAccountDto>>(emptyList())
     val stats = MutableStateFlow(LibraryStatsDto())
     val dirty = MutableStateFlow(false)
+
+    /** DY（docs/ANDROID-POLISH.md §DY）：账号切换（登录/退出）时复位，
+     *  避免未加载完成时闪现上一账号的资料与未保存编辑。 */
+    fun resetForSessionChange() {
+        user.value = null
+        displayName.value = ""
+        bio.value = ""
+        theme.value = "system"
+        emailAlerts.value = true
+        avatarSource.value = null
+        avatarUpdatedAt.value = null
+        accounts.value = emptyList()
+        stats.value = LibraryStatsDto()
+        dirty.value = false
+        loadedOnce = false
+        sheetOpen.value = false
+        emailSheetOpen.value = false
+    }
 
     // 查看已拥有/愿望单（底部弹层）
     val sheetOpen = MutableStateFlow(false)
@@ -440,10 +460,11 @@ class ProfileEditState(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
-    val appScope = rememberCoroutineScope()
     val context = LocalContext.current
     val session by vm.session.collectAsState()
-    val state = remember { ProfileEditState(vm, appScope) }
+    // DY（docs/ANDROID-POLISH.md §DY）：资料/表单状态提升到 AppViewModel——
+    // 旋转/返回后输入不丢（displayName/bio/theme/邮件开关均由其持有）。
+    val state = vm.profileState
 
     val loading by state.loading.collectAsState()
     val saving by state.saving.collectAsState()
@@ -458,9 +479,10 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
     val accounts by state.accounts.collectAsState()
     val stats by state.stats.collectAsState()
 
-    var removeConfirm by remember { mutableStateOf(false) }
-    var unbindTarget by remember { mutableStateOf<SteamAccountDto?>(null) }
-    var themeDialog by remember { mutableStateOf(false) }
+    // DY：弹窗开关 rememberSaveable（旋转不丢）；解绑目标存 steamId（可保存），用后再解析回账号。
+    var removeConfirm by rememberSaveable { mutableStateOf(false) }
+    var unbindTargetSteamId by rememberSaveable { mutableStateOf<String?>(null) }
+    var themeDialog by rememberSaveable { mutableStateOf(false) }
 
     val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { state.uploadAvatar(it) }
@@ -525,7 +547,7 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }),
             ) {
                 // ---- 头像 ----
                 Column(
@@ -670,7 +692,7 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
                         SteamAccountRow(
                             account = a,
                             onSetDefault = { state.setDefault(a) },
-                            onUnbind = { unbindTarget = a },
+                            onUnbind = { unbindTargetSteamId = a.steamId },
                         )
                         if (a != accounts.lastOrNull()) {
                             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
@@ -758,7 +780,7 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
                             onOpenLibrary = { state.openSheet(a, "library") },
                             onOpenWishlist = { state.openSheet(a, "wishlist") },
                             onSetDefault = { state.setDefault(a) },
-                            onUnbind = { unbindTarget = a },
+                            onUnbind = { unbindTargetSteamId = a.steamId },
                         )
                         Spacer(modifier = Modifier.height(9.dp))
                     }
@@ -865,10 +887,11 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
         )
     }
 
-    // ---- 解绑确认（二次确认，与 Web 一致） ----
+    // ---- 解绑确认（二次确认，与 Web 一致）——按 steamId 解析回账号 ----
+    val unbindTarget = unbindTargetSteamId?.let { id -> accounts.firstOrNull { it.steamId == id } }
     unbindTarget?.let { a ->
         AlertDialog(
-            onDismissRequest = { unbindTarget = null },
+            onDismissRequest = { unbindTargetSteamId = null },
             title = { Text(stringResource(R.string.profile_unbind_title)) },
             text = {
                 Text(
@@ -877,12 +900,12 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
             },
             confirmButton = {
                 TextButton(onClick = {
-                    unbindTarget = null
+                    unbindTargetSteamId = null
                     state.unbind(a)
                 }) { Text(stringResource(R.string.profile_unbind_confirm), color = DangerRed) }
             },
             dismissButton = {
-                TextButton(onClick = { unbindTarget = null }) { Text(stringResource(R.string.cancel)) }
+                TextButton(onClick = { unbindTargetSteamId = null }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }

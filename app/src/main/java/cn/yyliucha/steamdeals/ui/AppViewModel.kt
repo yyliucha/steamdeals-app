@@ -12,7 +12,11 @@ import cn.yyliucha.steamdeals.data.api.ApiException
 import cn.yyliucha.steamdeals.data.api.PrefsDto
 import cn.yyliucha.steamdeals.data.store.SessionData
 import cn.yyliucha.steamdeals.di.ServiceLocator
+import cn.yyliucha.steamdeals.ui.home.HomeScreenState
+import cn.yyliucha.steamdeals.ui.profile.ProfileEditState
+import cn.yyliucha.steamdeals.ui.search.SearchScreenState
 import cn.yyliucha.steamdeals.ui.update.UpdateManager
+import cn.yyliucha.steamdeals.ui.wishlist.WishlistScreenState
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -63,6 +67,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         locator.sessionManager.refreshUser()
         announcementsState.mergeLocalReadsToServer()
         announcementsState.refresh()
+        // DY：账号切换 → 清掉上一账号的资料/愿望单缓存，避免加载完成前闪现旧账号数据
+        profileState.resetForSessionChange()
+        wishlistState.reset()
     }
 
     /** CX 批：资料保存后刷新本地会话用户（昵称/头像回显在「我的」页与资料页）。 */
@@ -79,6 +86,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         session = session,
         scope = viewModelScope,
     )
+
+    // ---------- DY（站点 docs/ANDROID-POLISH.md §DY）：页面状态提升到 ViewModel ----------
+    // 各列表/表单页离开组合（进详情、切 Tab、旋转）后返回时保持离开时的状态；
+    // 滚动位置仍走 rememberSaveable（LazyListState.Saver / ScrollState.Saver，可跨进程保存），
+    // 业务状态（搜索词/结果/筛选/表单）由这里统一持有。
+    val searchState = SearchScreenState(this)
+    val homeState = HomeScreenState(this, viewModelScope)
+    val wishlistState = WishlistScreenState(this, viewModelScope)
+    val profileState = ProfileEditState(this, viewModelScope)
 
     val themeMode: StateFlow<String> = session.map { it.theme }.stateIn(
         viewModelScope, SharingStarted.Eagerly, "system",
@@ -171,6 +187,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun logout() {
         viewModelScope.launch {
             locator.sessionManager.logout()
+            // DY：退出登录 → 清掉本账号的资料/愿望单缓存，避免他人登录时闪现旧账号数据
+            profileState.resetForSessionChange()
+            wishlistState.reset()
         }
     }
 

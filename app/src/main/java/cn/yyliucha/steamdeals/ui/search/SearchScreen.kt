@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -31,7 +32,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -40,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import cn.yyliucha.steamdeals.R
 import cn.yyliucha.steamdeals.data.PendingAction
@@ -54,32 +58,51 @@ import cn.yyliucha.steamdeals.ui.components.toast
 import kotlinx.coroutines.launch
 
 /**
- * 搜索页（效果图 ④）：自动聚焦、历史关键词、结果卡片（含 DLC）。
+ * DY（站点 docs/ANDROID-POLISH.md §DY）：搜索状态提升到 AppViewModel——
+ * 搜索词 / 提交词 / 结果 / 总数 / 分页 / 加载态 / 错误 / 滚动位置全部由这里持有，
+ * 进详情、切 Tab、旋转后返回页面保持离开时的状态（不再回到空白搜索页）。
  */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val session by vm.session.collectAsState()
+class SearchScreenState(private val vm: AppViewModel) {
+    private val api = vm.apiPublic
+    private val scope = vm.viewModelScope
 
-    var keyword by remember { mutableStateOf("") }
-    var submitted by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<GameDto>>(emptyList()) }
-    var loading by remember { mutableStateOf(false) }
-    var errorMsg by remember { mutableStateOf<String?>(null) }
-    var total by remember { mutableStateOf(0) }
-    var page by remember { mutableStateOf(1) }
-    var pages by remember { mutableStateOf(1) }
-    val focusRequester = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
+    var keyword by mutableStateOf("")
+        private set
+    var submitted by mutableStateOf("")
+        private set
+    var results by mutableStateOf<List<GameDto>>(emptyList())
+        private set
+    var loading by mutableStateOf(false)
+        private set
+    var errorMsg by mutableStateOf<String?>(null)
+        private set
+    var total by mutableStateOf(0)
+        private set
+    var page by mutableStateOf(1)
+        private set
+    var pages by mutableStateOf(1)
+        private set
 
-    // 搜索历史（本地 DataStore）
-    val sessionData by vm.session.collectAsState()
-    val historyList = sessionData.searchHistory
+    /** 滚动位置镜像（列表滚动时由 UI 同步；列表离开组合重建时兜底恢复）。 */
+    var scrollIndex = 0
+    var scrollOffset = 0
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+    fun onKeywordChange(value: String) {
+        keyword = value
+    }
+
+    fun onScroll(index: Int, offset: Int) {
+        scrollIndex = index
+        scrollOffset = offset
+    }
+
+    /** 提交搜索：记录历史 + 请求第一页（历史关键词点击同样走这里）。 */
+    fun submitKeyword(raw: String) {
+        val kw = raw.trim()
+        if (kw.isEmpty()) return
+        submitted = kw
+        scope.launch { vm.storePublic.addSearchKeyword(kw) }
+        doSearch(kw)
     }
 
     fun doSearch(keyword: String, nextPage: Int = 1, append: Boolean = false) {
@@ -87,7 +110,7 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
             if (!append) loading = true
             errorMsg = null
             try {
-                val resp = vm.apiPublic.games(
+                val resp = api.games(
                     mapOf(
                         "region" to "cn",
                         "q" to keyword.trim(),
@@ -105,7 +128,8 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
             } catch (e: ApiException) {
                 if (!append) {
                     errorMsg = when (e) {
-                        is ApiException.Network -> context.getString(R.string.network_error)
+                        is ApiException.Network ->
+                            vm.getApplication<android.app.Application>().getString(R.string.network_error)
                         else -> e.message ?: "搜索失败"
                     }
                 }
@@ -113,6 +137,53 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
                 loading = false
             }
         }
+    }
+
+    fun loadMore() {
+        if (page < pages) doSearch(submitted, page + 1, append = true)
+    }
+
+    fun retry() {
+        doSearch(submitted)
+    }
+}
+
+/**
+ * 搜索页（效果图 ④）：自动聚焦、历史关键词、结果卡片（含 DLC）。
+ * DY：状态全部走 SearchScreenState（ViewModel 持有），滚动位置 rememberSaveable。
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val session by vm.session.collectAsState()
+    val state = vm.searchState
+
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    // DY：滚动位置 rememberSaveable（导航返回/旋转自动恢复），并镜像到 ViewModel。
+    val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .collect { (index, offset) -> state.onScroll(index, offset) }
+    }
+    // 列表重建而 Saver 未恢复时（ViewModel 存活、列表短暂离开组合），用镜像兜底定位。
+    LaunchedEffect(state.results) {
+        if (state.results.isNotEmpty() && state.scrollIndex > 0 &&
+            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
+        ) {
+            listState.scrollToItem(state.scrollIndex, state.scrollOffset)
+        }
+    }
+
+    // 搜索历史（本地 DataStore）
+    val sessionData by vm.session.collectAsState()
+    val historyList = sessionData.searchHistory
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -126,8 +197,8 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
             }
             OutlinedTextField(
-                value = keyword,
-                onValueChange = { keyword = it },
+                value = state.keyword,
+                onValueChange = { state.onKeywordChange(it) },
                 placeholder = { Text(stringResource(R.string.search_placeholder)) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
@@ -137,11 +208,9 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
             )
             TextButton(
                 onClick = {
-                    if (keyword.trim().isNotEmpty()) {
+                    if (state.keyword.trim().isNotEmpty()) {
                         keyboard?.hide()
-                        submitted = keyword.trim()
-                        scope.launch { vm.storePublic.addSearchKeyword(keyword.trim()) }
-                        doSearch(keyword.trim())
+                        state.submitKeyword(state.keyword)
                     }
                 },
             ) {
@@ -150,7 +219,7 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
         }
 
         when {
-            submitted.isEmpty() -> {
+            state.submitted.isEmpty() -> {
                 // 历史关键词
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -184,9 +253,8 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
                                 FilterChip(
                                     selected = false,
                                     onClick = {
-                                        keyword = h
-                                        submitted = h
-                                        doSearch(h)
+                                        state.onKeywordChange(h)
+                                        state.submitKeyword(h)
                                     },
                                     label = { Text(h) },
                                     colors = FilterChipDefaults.filterChipColors(
@@ -198,36 +266,37 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
                     }
                 }
             }
-            loading && results.isEmpty() -> LoadingBox()
-            errorMsg != null && results.isEmpty() -> Column(
+            state.loading && state.results.isEmpty() -> LoadingBox()
+            state.errorMsg != null && state.results.isEmpty() -> Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = errorMsg ?: "",
+                    text = state.errorMsg ?: "",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                TextButton(onClick = { doSearch(submitted) }) {
+                TextButton(onClick = { state.retry() }) {
                     Text(stringResource(R.string.retry))
                 }
             }
-            results.isEmpty() -> EmptyBox(context.getString(R.string.empty_list))
+            state.results.isEmpty() -> EmptyBox(context.getString(R.string.empty_list))
             else -> {
                 Text(
-                    text = context.getString(R.string.search_result_count, total),
+                    text = context.getString(R.string.search_result_count, state.total),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
                 LazyColumn(
+                    state = listState,
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(results.size, key = { results[it].id }) { i ->
-                        val game = results[i]
+                    items(state.results.size, key = { state.results[it].id }) { i ->
+                        val game = state.results[i]
                         GameCard(
                             game = game,
                             onOpen = { navController.navigate(Routes.detail(game.steam_appid ?: game.id)) },
@@ -252,7 +321,7 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
                                                 vm.apiPublic.addWishlist(appid)
                                                 toast(context, context.getString(R.string.toast_wishlist_added))
                                             }
-                                            doSearch(submitted)
+                                            state.doSearch(state.submitted)
                                         } catch (e: ApiException) {
                                             if (e is ApiException.LoginRequired) vm.onLoginRequired(null)
                                             else toast(context, context.getString(R.string.toast_op_failed))
@@ -262,13 +331,13 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
                             },
                         )
                     }
-                    if (page < pages) {
+                    if (state.page < state.pages) {
                         item {
                             Box(
                                 modifier = Modifier.fillMaxWidth().padding(8.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                TextButton(onClick = { doSearch(submitted, page + 1, append = true) }) {
+                                TextButton(onClick = { state.loadMore() }) {
                                     Text(stringResource(R.string.load_more))
                                 }
                             }

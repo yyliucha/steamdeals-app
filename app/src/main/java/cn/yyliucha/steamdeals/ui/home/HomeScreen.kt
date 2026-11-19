@@ -10,8 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
@@ -32,8 +33,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -203,7 +204,9 @@ class HomeScreenState(vm: AppViewModel, private val appScope: CoroutineScope) {
 @Composable
 fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
     val appScope = rememberCoroutineScope()
-    val state = remember { HomeScreenState(vm, appScope) }
+    // DY（docs/ANDROID-POLISH.md §DY）：首页数据/筛选/排序提升到 AppViewModel——
+    // 进详情/切 Tab 后返回保持离开时的筛选与已加载数据；滚动位置 rememberSaveable。
+    val state = vm.homeState
     val context = LocalContext.current
     val session by vm.session.collectAsState()
     val displayed by state.displayed.collectAsState()
@@ -214,7 +217,7 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
     val filter by state.filter.collectAsState()
     val sort by state.sort.collectAsState()
     val steamBound by state.steamBound.collectAsState()
-    val listState = rememberLazyListState()
+    val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     // DC：公告未读数（0 隐藏角标；首页铃铛 → 公告弹层）
     val unreadAnnouncements by vm.announcementsState.unreadCount.collectAsState()
 
@@ -293,7 +296,7 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
             Row(
                 modifier = Modifier
                     .padding(top = 4.dp)
-                    .horizontalScroll(rememberScrollState()),
+                    .horizontalScroll(rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 HomeFilter.entries.forEach { f ->

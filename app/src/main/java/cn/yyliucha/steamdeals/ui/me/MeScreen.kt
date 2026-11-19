@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -36,7 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,8 +70,9 @@ import coil.compose.AsyncImage
 fun MeScreen(vm: AppViewModel, navController: NavHostController) {
     val session by vm.session.collectAsState()
     val context = LocalContext.current
-    var themeDialog by remember { mutableStateOf(false) }
-    var logoutDialog by remember { mutableStateOf(false) }
+    // DY（docs/ANDROID-POLISH.md §DY）：弹窗开关与滚动位置 rememberSaveable（旋转/切 Tab 返回不丢）。
+    var themeDialog by rememberSaveable { mutableStateOf(false) }
+    var logoutDialog by rememberSaveable { mutableStateOf(false) }
 
     if (!session.isLoggedIn) {
         LoginGuide(
@@ -94,7 +96,7 @@ fun MeScreen(vm: AppViewModel, navController: NavHostController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }),
     ) {
         // 账号卡片（CX 批：头像有则显示 /api/avatar；DQ 批：无头像回退昵称首字母/首个汉字 + 品牌色圆底；点击进编辑资料）
         Surface(
