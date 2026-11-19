@@ -101,6 +101,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope, SharingStarted.Eagerly, "system",
     )
 
+    // ---------- EB（站点 docs/ANDROID-POLISH.md §EB）：18R 内容选项 ----------
+    // 默认关闭 + 本地 DataStore 记忆；首页/搜索共用同一开关；首次开启需弹「确认已满 18 岁」。
+    val adultEnabled: StateFlow<Boolean> = session.map { it.adultEnabled }.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false,
+    )
+    val adultConfirmed: StateFlow<Boolean> = session.map { it.adultConfirmed }.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false,
+    )
+
+    fun setAdultEnabled(enabled: Boolean) {
+        viewModelScope.launch { store.setAdultEnabled(enabled) }
+    }
+
+    fun confirmAdult() {
+        viewModelScope.launch { store.setAdultConfirmed() }
+    }
+
     // ---------- 启动封禁检查 ----------
     private val _banState = MutableStateFlow<BanState>(BanState.Checking)
     val banState: StateFlow<BanState> = _banState

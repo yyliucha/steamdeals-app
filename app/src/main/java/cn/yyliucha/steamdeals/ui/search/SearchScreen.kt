@@ -1,6 +1,8 @@
 package cn.yyliucha.steamdeals.ui.search
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -122,6 +125,8 @@ class SearchScreenState(private val vm: AppViewModel) {
                         "type" to "all",
                         // CV 批（docs/APP-SEARCH-OWNED.md）：搜索不排除已拥有
                         "owned" to "include",
+                        // EB（docs/ANDROID-POLISH.md §EB）：开=badge（显示+角标）/ 关=hide（默认）
+                        "adult" to if (vm.adultEnabled.value) "badge" else "hide",
                     ),
                 )
                 results = if (append) (results + resp.games).distinctBy { it.id } else resp.games
@@ -190,9 +195,17 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
     // 搜索历史（本地 DataStore）
     val sessionData by vm.session.collectAsState()
     val historyList = sessionData.searchHistory
+    // EB（docs/ANDROID-POLISH.md §EB）：18R 开关与年龄确认（与首页共用 AppViewModel 状态）
+    val adultEnabled by vm.adultEnabled.collectAsState()
+    val adultConfirmed by vm.adultConfirmed.collectAsState()
+    var showAdultConfirm by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+    }
+    // EB：18R 开关变化 → 已提交搜索词时带新 adult 参数重搜当前词
+    LaunchedEffect(adultEnabled) {
+        if (state.submitted.isNotEmpty()) state.doSearch(state.submitted)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -225,6 +238,32 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
             ) {
                 Text(stringResource(R.string.tab_search))
             }
+        }
+
+        // EB（docs/ANDROID-POLISH.md §EB）：搜索页 18R chip（与首页同一开关；首次开启弹年龄确认）
+        Row(
+            modifier = Modifier
+                .padding(start = 16.dp, end = 16.dp, bottom = 2.dp)
+                .horizontalScroll(rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = adultEnabled,
+                onClick = {
+                    if (adultEnabled) {
+                        vm.setAdultEnabled(false)
+                    } else if (adultConfirmed) {
+                        vm.setAdultEnabled(true)
+                    } else {
+                        showAdultConfirm = true
+                    }
+                },
+                label = { Text(stringResource(R.string.filter_adult)) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
+                    selectedLabelColor = MaterialTheme.colorScheme.primary,
+                ),
+            )
         }
 
         // EA-1（docs/ANDROID-POLISH.md §EA-1）：下拉刷新——已提交且有结果时 pull 重搜当前词；
@@ -385,5 +424,29 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
             }
         }
         }
+    }
+
+    // EB（docs/ANDROID-POLISH.md §EB）：首次开启 18R 弹「确认已满 18 岁」（确认后 DataStore 记忆不再弹；
+    // 未确认不切换开关）
+    if (showAdultConfirm) {
+        AlertDialog(
+            onDismissRequest = { showAdultConfirm = false },
+            title = { Text(stringResource(R.string.adult_confirm_title)) },
+            text = { Text(stringResource(R.string.adult_confirm_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showAdultConfirm = false
+                    vm.confirmAdult()
+                    vm.setAdultEnabled(true)
+                }) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAdultConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 }

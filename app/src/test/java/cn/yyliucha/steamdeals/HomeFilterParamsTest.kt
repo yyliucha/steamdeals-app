@@ -70,6 +70,7 @@ class HomeFilterParamsTest {
         assertEquals("release", params["sort"])
         assertEquals("1", params["discountOnly"])
         assertEquals("include", params["owned"])
+        assertEquals("hide", params["adult"])
         assertFalse(params.containsKey("histLowOnly"))
         assertFalse(params.containsKey("unreleased"))
     }
@@ -81,5 +82,21 @@ class HomeFilterParamsTest {
         assertEquals("heat", params["sort"])
         assertEquals("1", params["page"])
         assertEquals("chip 共 6 个（全部/折扣/史低/免费/未发售/已拥有）", 6, HomeFilter.entries.size)
+    }
+
+    // ---- EB（站点 docs/ANDROID-POLISH.md §EB）：18R 开关 → adult 参数映射 ----
+
+    @Test
+    fun `EB 默认关闭时请求带 adult=hide`() {
+        val params = HomeFilterParams.paramsFor(HomeFilter.ALL, HomeSort.HEAT, page = 1, pageSize = 50)
+        assertEquals("hide", params["adult"])
+    }
+
+    @Test
+    fun `EB 开启后请求带 adult=badge 显示并带角标`() {
+        val params = HomeFilterParams.paramsFor(
+            HomeFilter.ALL, HomeSort.HEAT, page = 1, pageSize = 50, adultEnabled = true,
+        )
+        assertEquals("badge", params["adult"])
     }
 }

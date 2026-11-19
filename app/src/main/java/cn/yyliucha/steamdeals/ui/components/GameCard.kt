@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import cn.yyliucha.steamdeals.data.api.GameDto
 import cn.yyliucha.steamdeals.ui.theme.BrandPurple
+import cn.yyliucha.steamdeals.ui.theme.DangerRed
 import cn.yyliucha.steamdeals.ui.theme.SuccessGreen
 import cn.yyliucha.steamdeals.ui.theme.TextSecondaryDark
 
@@ -136,6 +137,8 @@ fun GameCard(
                     }
                     if (game.app_type == "dlc") Badge("DLC", BrandPurple)
                     if (game.mature_flag) Badge("成熟内容", MaterialTheme.colorScheme.tertiary)
+                    // EB（docs/ANDROID-POLISH.md §EB）：18R 角标——红色，与「成熟内容」样式区分
+                    if (game.adult_flag) Badge("18+", DangerRed)
                 }
 
                 Row(
