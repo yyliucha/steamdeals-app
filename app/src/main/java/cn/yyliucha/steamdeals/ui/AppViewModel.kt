@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cn.yyliucha.steamdeals.App
 import cn.yyliucha.steamdeals.BuildConfig
+import cn.yyliucha.steamdeals.R
 import cn.yyliucha.steamdeals.data.PendingAction
 import cn.yyliucha.steamdeals.data.PendingActionHolder
 import cn.yyliucha.steamdeals.data.api.ApiClient
@@ -104,8 +105,36 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _banState = MutableStateFlow<BanState>(BanState.Checking)
     val banState: StateFlow<BanState> = _banState
 
+    // ---------- EA-6（站点 docs/ANDROID-POLISH.md §EA-6）：全局弱网提示 ----------
+    // 任何请求网络层失败 → 提示条亮起（不阻塞页面）；「重试」ping /api/app/status，
+    // 任一请求成功即自动隐藏并 toast「网络已恢复」。
+    private val _networkBanner = MutableStateFlow(false)
+    val networkBanner: StateFlow<Boolean> = _networkBanner
+
     init {
+        apiClient.networkStateListener = { ok -> onNetworkResult(ok) }
         checkBan()
+    }
+
+    private fun onNetworkResult(ok: Boolean) {
+        if (ok) {
+            if (_networkBanner.value) {
+                _networkBanner.value = false
+                val app = getApplication<Application>()
+                android.widget.Toast.makeText(
+                    app, app.getString(R.string.network_recovered), android.widget.Toast.LENGTH_SHORT,
+                ).show()
+            }
+        } else {
+            _networkBanner.value = true
+        }
+    }
+
+    /** 弱网提示条「重试」：轻量 ping；成功由 networkStateListener 收尾隐藏，失败保持提示条。 */
+    fun retryNetwork() {
+        viewModelScope.launch {
+            runCatching { api.appStatus() }
+        }
     }
 
     private fun checkBan() {

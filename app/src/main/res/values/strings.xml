@@ -21,6 +21,9 @@
     <string name="empty_list">暂无数据</string>
     <string name="network_error">网络错误，请检查网络后重试</string>
     <string name="server_error">服务出错了，请稍后再试</string>
+    <!-- EA-6：全局弱网提示条 -->
+    <string name="network_banner_msg">网络不可用，请检查网络连接</string>
+    <string name="network_recovered">网络已恢复</string>
     <string name="guest">游客</string>
 
     <!-- 登录 -->

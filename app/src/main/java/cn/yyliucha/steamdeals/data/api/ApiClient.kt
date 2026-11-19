@@ -32,6 +32,13 @@ class ApiClient(
         coerceInputValues = true
     }
 
+    /**
+     * EA-6（站点 docs/ANDROID-POLISH.md §EA-6）：网络可达性回调——任何请求网络层失败（DNS/超时/断网）
+     * 通知 false、任何请求拿到响应通知 true；AppViewModel 借此显示/关闭全局弱网提示条。
+     * 在 IO 线程回调，实现方须线程安全（本项目只写 StateFlow）。
+     */
+    var networkStateListener: ((ok: Boolean) -> Unit)? = null
+
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -79,10 +86,12 @@ class ApiClient(
                 client.newCall(req).execute()
             } catch (e: Exception) {
                 android.util.Log.e("SteamDealsNet", "$method $path -> NET ERR ${e.javaClass.simpleName}: ${e.message}")
+                networkStateListener?.invoke(false)
                 throw ApiException.Network(e)
             }
             response.use { resp ->
                 val text = resp.body?.string().orEmpty()
+                networkStateListener?.invoke(true)
                 if (resp.code !in 200..299) {
                     android.util.Log.e("SteamDealsNet", "$method $path -> ${resp.code}: ${text.take(160)}")
                 }
@@ -121,9 +130,11 @@ class ApiClient(
         val response = try {
             client.newCall(request).execute()
         } catch (e: Exception) {
+            networkStateListener?.invoke(false)
             throw ApiException.Network(e)
         }
         response.use { resp ->
+            networkStateListener?.invoke(true)
             if (!resp.isSuccessful) {
                 throw ApiException.Http(resp.code, "下载失败（HTTP ${resp.code}）")
             }
