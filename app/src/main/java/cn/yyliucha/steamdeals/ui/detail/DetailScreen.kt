@@ -405,12 +405,13 @@ fun DetailScreen(vm: AppViewModel, navController: NavHostController, appid: Long
             modifier = Modifier.fillMaxSize().padding(padding),
         ) {
         when {
-            state.loading && detail == null -> LoadingBox()
+            // EA-5（docs/ANDROID-POLISH.md §EA-5）：加载中走骨架屏（封面/标题/价格/指标占位 + 呼吸动画）
+            state.loading && detail == null -> DetailSkeleton()
             state.error != null && detail == null -> ErrorBox(
                 message = state.error ?: "",
                 onRetry = { state.refresh() },
             )
-            detail == null -> LoadingBox()
+            detail == null -> DetailSkeleton()
             else -> {
                 // DY：详情正文滚动位置 rememberSaveable（旋转不丢）。
                 val detailListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
