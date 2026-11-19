@@ -19,7 +19,7 @@ import java.io.FileInputStream
 
 /**
  * App 内置更新（CA-4，沿用 docs/MOBILE-APP-UPDATE.md 的交互与元数据契约，原生实现）：
- * latest.json + versionCode/notes/minVersionCode、启动+回前台（24h 节流）+ 手动检查、
+ * latest.json + versionCode/notes/minVersionCode、启动+回前台（1h 节流）+ 手动检查、
  * Wi-Fi 默认、SHA-256 校验、系统安装确认、站点优先 / GitHub Release 兜底。
  */
 class UpdateManager(
@@ -47,12 +47,22 @@ class UpdateManager(
     }
 
     companion object {
-        const val THROTTLE_MS = 24 * 60 * 60 * 1000L
+        // DR（站点 TODO DR，docs/APP-INSTANT-UPDATE.md §3.2）：自动检查节流 24h → 1h——
+        // 站点「立即同步」+ 15 分钟同步间隔后，手机打开/回前台最迟约 1 小时即可感知更新；
+        // 手动检查（「我的 → 检查更新」）不节流、不写检查时间（BY §4.5 不变）。
+        const val THROTTLE_MS = 60 * 60 * 1000L
         const val GITHUB_HOST = "github.com"
         val GITHUB_CDN_HOSTS = setOf("objects.githubusercontent.com", "release-assets.githubusercontent.com")
         val SITE_HOSTS = setOf("sd.yyliucha.cn")
         // 本机联调（模拟器 10.0.2.2 / 真机局域网 IP）仅 debug 放行
         val DEBUG_HOSTS = setOf("10.0.2.2", "127.0.0.1", "localhost")
+
+        /**
+         * DR（站点 TODO DR）：节流判定抽纯函数（JVM 单测直测）——
+         * manual 永不节流；自动检查距上次不足 THROTTLE_MS（1h）时不重复请求。
+         */
+        fun isThrottled(manual: Boolean, nowMs: Long, lastCheckAtMs: Long): Boolean =
+            !manual && nowMs - lastCheckAtMs < THROTTLE_MS
 
         /**
          * DK 批（站点 TODO DK B）：检查结果决策抽成纯函数（JVM 单测直测）——
@@ -108,14 +118,14 @@ class UpdateManager(
         }
     }
 
-    /** 检查更新。manual=true 忽略 24h 节流且不写检查时间（BY §4.5）。 */
+    /** 检查更新。manual=true 忽略节流且不写检查时间（BY §4.5；节流窗口 DR 缩短为 1h）。 */
     suspend fun check(
         manual: Boolean,
         currentVersionCode: Int = BuildConfig.VERSION_CODE,
         ignoredVersionCode: Int = 0,
         lastCheckAt: Long = 0,
     ): CheckResult {
-        if (!manual && System.currentTimeMillis() - lastCheckAt < THROTTLE_MS) return CheckResult.None
+        if (isThrottled(manual, System.currentTimeMillis(), lastCheckAt)) return CheckResult.None
         if (!manual) store.setLastUpdateCheckAt(System.currentTimeMillis())
 
         val latest = try {

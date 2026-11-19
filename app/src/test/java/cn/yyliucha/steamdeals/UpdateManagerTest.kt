@@ -108,4 +108,35 @@ class UpdateManagerTest {
         assertNull(UpdateManager.resolveApkUrl(""))
         assertNull(UpdateManager.resolveApkUrl("https://evil.example.com/x.apk"))
     }
+
+    // ---- DR（站点 TODO DR，docs/APP-INSTANT-UPDATE.md §3.2）：自动检查节流 24h → 1h；手动检查不变 ----
+
+    @Test
+    fun `THROTTLE_MS 为 1 小时（DR：24h 缩短到 1h）`() {
+        assertEquals("自动检查节流窗口必须是 1 小时", 60 * 60 * 1000L, UpdateManager.THROTTLE_MS)
+    }
+
+    @Test
+    fun `自动检查 1 小时内不重复请求（DR：24h 内也不查，现在 1h 内不查）`() {
+        val now = 1_000_000_000L
+        assertTrue("刚检查过 → 节流", UpdateManager.isThrottled(false, now, now))
+        assertTrue("距上次 1 分钟 → 节流", UpdateManager.isThrottled(false, now, now - 60_000L))
+        assertTrue("距上次 59 分钟 → 节流", UpdateManager.isThrottled(false, now, now - 59 * 60 * 1000L))
+    }
+
+    @Test
+    fun `自动检查超过 1 小时放行（含恰好 1 小时与从未检查）`() {
+        val now = 1_000_000_000L
+        assertEquals("恰好 1 小时 → 放行", false, UpdateManager.isThrottled(false, now, now - 60 * 60 * 1000L))
+        assertEquals("超过 1 小时 → 放行", false, UpdateManager.isThrottled(false, now, now - 61 * 60 * 1000L))
+        assertEquals("从未检查过（lastCheckAt=0）→ 放行", false, UpdateManager.isThrottled(false, now, 0L))
+    }
+
+    @Test
+    fun `手动检查永不节流（BY 4-5 不回归：manual 不节流不写时间）`() {
+        val now = 1_000_000_000L
+        assertEquals("刚检查过再手动点 → 立即查", false, UpdateManager.isThrottled(true, now, now))
+        assertEquals("手动检查无视节流窗口", false, UpdateManager.isThrottled(true, now, now - 1000L))
+        assertEquals("手动首次检查 → 放行", false, UpdateManager.isThrottled(true, now, 0L))
+    }
 }
