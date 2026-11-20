@@ -1,13 +1,13 @@
 {
-  "sha256": "8764803571225B295148ED90985C15F0D8D88CDFBD377493CFD9270EDADC2FDD",
+  "sha256": "A24AB699AE273119376BE4E079B42C55BD6CEABB93CDFBFCA47BEC75352F13F1",
   "minVersionCode": 21600,
-  "apkPath": "/app/steamdeals-2.24.0.apk",
+  "apkPath": "/app/steamdeals-2.24.1.apk",
   "notes": [
     "18R 筛选语义修正（EF）：「18R」chip 从「解锁显示」改「筛选」——开=只看 18R（adult=badge&rating=adult，卡片红色 18+ 角标）、关=恢复全部（adult=hide）；配合站点 cc=us 元数据回填，18R 游戏可被正常筛出",
     "公告角标已读修复（EG）：点开详情/全部已读后角标正确递减/归零且不再回跳（服务端 Bearer readIds + 本地陈旧快照守卫），下拉刷新/重进首页/重启 App 均不复现"
   ],
-  "versionCode": 22400,
+  "versionCode": 22401,
   "releasedAt": "2026-11-20",
   "size": 2029840,
-  "version": "2.24.0"
+  "version": "2.24.1"
 }
