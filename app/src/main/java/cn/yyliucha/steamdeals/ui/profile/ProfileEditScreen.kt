@@ -81,6 +81,7 @@ import cn.yyliucha.steamdeals.ui.AppViewModel
 import cn.yyliucha.steamdeals.ui.Routes
 import cn.yyliucha.steamdeals.ui.components.Badge
 import cn.yyliucha.steamdeals.ui.components.LoadingBox
+import cn.yyliucha.steamdeals.ui.components.displayNameOrNull
 import cn.yyliucha.steamdeals.ui.components.formatPrice
 import cn.yyliucha.steamdeals.ui.components.openCustomTab
 import cn.yyliucha.steamdeals.ui.components.steamImageUrl
@@ -578,7 +579,9 @@ fun ProfileEditScreen(vm: AppViewModel, navController: NavHostController) {
                             )
                         } else {
                             Text(
-                                text = initialOf(me?.displayName ?: me?.username),
+                                // EJ 批（站点 docs/DISPLAY-NAME-RULE.md）：头像首字与「我的」页同口径
+                                //（昵称 trim 非空 → 昵称，否则用户名）
+                                text = initialOf(displayNameOrNull(me?.displayName, me?.username)),
                                 color = Color.White,
                                 fontSize = 32.sp,
                                 fontWeight = FontWeight.Bold,

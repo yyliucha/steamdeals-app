@@ -57,6 +57,8 @@ import cn.yyliucha.steamdeals.R
 import cn.yyliucha.steamdeals.ui.AppViewModel
 import cn.yyliucha.steamdeals.ui.Routes
 import cn.yyliucha.steamdeals.ui.components.Badge
+import cn.yyliucha.steamdeals.ui.components.displayNameOf
+import cn.yyliucha.steamdeals.ui.components.displayNameOrNull
 import cn.yyliucha.steamdeals.ui.components.toast
 import cn.yyliucha.steamdeals.ui.profile.initialOf
 import cn.yyliucha.steamdeals.ui.theme.BrandPurple
@@ -142,7 +144,7 @@ fun MeScreen(vm: AppViewModel, navController: NavHostController) {
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = initialOf(user?.displayName ?: user?.username),
+                            text = initialOf(displayNameOrNull(user?.displayName, user?.username)),
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
@@ -150,8 +152,10 @@ fun MeScreen(vm: AppViewModel, navController: NavHostController) {
                     }
                 }
                 Column(modifier = Modifier.padding(start = 12.dp)) {
+                    // EJ 批（站点 docs/DISPLAY-NAME-RULE.md）：显示名 = 昵称（非空）? 昵称 : 用户名；
+                    // 清空昵称后自动回退用户名，登录仍用 username。
                     Text(
-                        text = user?.username ?: "",
+                        text = displayNameOf(user?.displayName, user?.username),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     if (user?.role == "admin") {
