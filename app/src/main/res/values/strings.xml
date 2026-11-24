@@ -65,6 +65,11 @@
     <string name="filter_free">免费</string>
     <string name="filter_upcoming">未发售</string>
     <string name="filter_owned">已拥有</string>
+    <!-- FI（站点 docs/ADMIN-RATING-FILTER.md）：18R 筛选 chip——按站点策略 adultDisplay 显隐
+         （hide=无入口；badge/show=显示；选中=只看 18R（adult=badge|show&rating=adult）） -->
+    <string name="filter_adult">18R</string>
+    <string name="adult_confirm_title">确认已满 18 岁</string>
+    <string name="adult_confirm_text">开启后将只显示 18R 成人内容游戏，并带「18+」角标。确认你已年满 18 岁？</string>
     <string name="sort_heat">热度</string>
     <string name="sort_release">发行时间</string>
     <string name="sort_price">价格</string>

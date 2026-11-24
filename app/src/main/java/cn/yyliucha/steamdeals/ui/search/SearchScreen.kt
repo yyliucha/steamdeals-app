@@ -1,6 +1,8 @@
 package cn.yyliucha.steamdeals.ui.search
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -122,9 +125,15 @@ class SearchScreenState(private val vm: AppViewModel) {
                         put("type", "all")
                         // CV 批（docs/APP-SEARCH-OWNED.md）：搜索不排除已拥有
                         put("owned", "include")
-                        // FG（站点 docs/REMOVE-18R-ENTRY.md）：18R 筛选入口已移除——固定 adult=hide
-                        // （服务端默认过滤成人内容）
-                        put("adult", "hide")
+                        // FI（站点 docs/ADMIN-RATING-FILTER.md）：adult 恒传站点策略——
+                        // hide=服务端过滤成人；badge/show=不过滤；选中 18R（本地开关）→ rating=adult。
+                        val display = if (vm.siteAdultDisplay.value == "badge" || vm.siteAdultDisplay.value == "show") {
+                            vm.siteAdultDisplay.value
+                        } else {
+                            "hide"
+                        }
+                        put("adult", display)
+                        if (vm.adultEnabled.value && display != "hide") put("rating", "adult")
                     },
                 )
                 results = if (append) (results + resp.games).distinctBy { it.id } else resp.games
@@ -193,9 +202,24 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
     // 搜索历史（本地 DataStore）
     val sessionData by vm.session.collectAsState()
     val historyList = sessionData.searchHistory
+    // FI（站点 docs/ADMIN-RATING-FILTER.md）：18R 筛选开关/年龄确认/站点策略（与首页共用 AppViewModel 状态）
+    val adultEnabled by vm.adultEnabled.collectAsState()
+    val adultConfirmed by vm.adultConfirmed.collectAsState()
+    val adultDisplay by vm.siteAdultDisplay.collectAsState()
+    var showAdultConfirm by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        vm.refreshSiteInfo() // 进入页面刷新站点策略
         focusRequester.requestFocus()
+    }
+    // FI：18R 开关变化 → 已提交搜索词时带新 adult/rating 参数重搜当前词
+    LaunchedEffect(adultEnabled) {
+        if (state.submitted.isNotEmpty()) state.doSearch(state.submitted)
+    }
+    // FI：站点策略变化（如 badge→hide）→ hide 强制关开关；有已提交词时重搜
+    LaunchedEffect(adultDisplay) {
+        if (adultDisplay == "hide" && adultEnabled) vm.setAdultEnabled(false)
+        if (state.submitted.isNotEmpty()) state.doSearch(state.submitted)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -227,6 +251,35 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
                 },
             ) {
                 Text(stringResource(R.string.tab_search))
+            }
+        }
+
+        // FI（站点 docs/ADMIN-RATING-FILTER.md）：搜索页 18R chip 按站点策略显隐
+        // （与首页同一开关；开=只看 18R，关=恢复全部；首次开启弹年龄确认）
+        if (adultDisplay != "hide") {
+            Row(
+                modifier = Modifier
+                    .padding(start = 16.dp, end = 16.dp, bottom = 2.dp)
+                    .horizontalScroll(rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = adultEnabled,
+                    onClick = {
+                        if (adultEnabled) {
+                            vm.setAdultEnabled(false)
+                        } else if (adultConfirmed) {
+                            vm.setAdultEnabled(true)
+                        } else {
+                            showAdultConfirm = true
+                        }
+                    },
+                    label = { Text(stringResource(R.string.filter_adult)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
+                        selectedLabelColor = MaterialTheme.colorScheme.primary,
+                    ),
+                )
             }
         }
 
@@ -341,6 +394,7 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
                         GameCard(
                             game = game,
                             onOpen = { navController.navigate(Routes.detail(game.steam_appid ?: game.id)) },
+                            showAdultBadge = adultDisplay == "badge",
                             onWishlistToggle = {
                                 if (!session.isLoggedIn) {
                                     vm.onLoginRequired(
@@ -388,5 +442,29 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
             }
         }
         }
+    }
+
+    // FI（站点 docs/ADMIN-RATING-FILTER.md）：首次开启 18R 筛选弹「确认已满 18 岁」
+    // （确认后 DataStore 记忆不再弹，未确认不切换开关——EB 批交互保留）
+    if (showAdultConfirm) {
+        AlertDialog(
+            onDismissRequest = { showAdultConfirm = false },
+            title = { Text(stringResource(R.string.adult_confirm_title)) },
+            text = { Text(stringResource(R.string.adult_confirm_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showAdultConfirm = false
+                    vm.confirmAdult()
+                    vm.setAdultEnabled(true)
+                }) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAdultConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 }

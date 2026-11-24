@@ -48,6 +48,8 @@ fun GameCard(
     onOpen: () -> Unit,
     onWishlistToggle: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    /** FI（站点 docs/ADMIN-RATING-FILTER.md）：18+ 角标只随站点策略 badge 显示（show 无角标）。 */
+    showAdultBadge: Boolean = false,
 ) {
     val isNewHistLow = game.prev_hist_low != null && game.current_low != null &&
         game.current_low < game.prev_hist_low
@@ -137,8 +139,9 @@ fun GameCard(
                     }
                     if (game.app_type == "dlc") Badge("DLC", BrandPurple)
                     if (game.mature_flag) Badge("成熟内容", MaterialTheme.colorScheme.tertiary)
-                    // EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 角标——红色，与「成熟内容」样式区分
-                    if (game.adult_flag) Badge("18+", DangerRed)
+                    // FI（站点 docs/ADMIN-RATING-FILTER.md）：18R 角标——红色，与「成熟内容」样式区分；
+                    // 仅站点策略 badge 时显示（hide 不返回成人；show 按普通展示无角标）。
+                    if (game.adult_flag && showAdultBadge) Badge("18+", DangerRed)
                 }
 
                 Row(

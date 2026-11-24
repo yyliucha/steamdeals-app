@@ -109,10 +109,37 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope, SharingStarted.Eagerly, "system",
     )
 
-    // ---------- FG（站点 docs/REMOVE-18R-ENTRY.md）：18R 筛选 UI 已移除 ----------
-    // 首页/搜索的 18R chip 与年龄确认弹窗已删；查询固定 adult=hide。
-    // SessionStore 的 adultEnabled/adultConfirmed 字段保留（DataStore 升级兼容，见 SessionStore.kt），
-    // 本处不再提供投影与开关函数。
+    // ---------- FI（站点 docs/ADMIN-RATING-FILTER.md）：18R 筛选按站点策略控制 ----------
+    // 本地开关 adultEnabled/adultConfirmed（DataStore 记忆）只控制筛选选中态；
+    // 18R chip 的显隐由 /api/site 的 adultDisplay 决定（hide=无入口、请求 adult=hide；
+    // badge/show=显示入口，badge 卡片带 18+ 角标、show 无角标）。
+    val adultEnabled: StateFlow<Boolean> = session.map { it.adultEnabled }.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false,
+    )
+    val adultConfirmed: StateFlow<Boolean> = session.map { it.adultConfirmed }.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false,
+    )
+
+    fun setAdultEnabled(enabled: Boolean) {
+        viewModelScope.launch { store.setAdultEnabled(enabled) }
+    }
+
+    fun confirmAdult() {
+        viewModelScope.launch { store.setAdultConfirmed() }
+    }
+
+    /** 站点内容展示策略（/api/site 的 adultDisplay）：hide / badge / show（网络失败保持 hide）。 */
+    private val _siteAdultDisplay = MutableStateFlow("hide")
+    val siteAdultDisplay: StateFlow<String> = _siteAdultDisplay
+
+    /** 拉取站点策略（启动与进入首页/搜索时刷新；后台改参数后回页面即生效）。 */
+    fun refreshSiteInfo() {
+        viewModelScope.launch {
+            runCatching { api.site() }.onSuccess { resp ->
+                _siteAdultDisplay.value = resp.adultDisplay.ifBlank { "hide" }
+            }
+        }
+    }
 
     // ---------- 启动封禁检查 ----------
     private val _banState = MutableStateFlow<BanState>(BanState.Checking)
@@ -127,6 +154,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     init {
         apiClient.networkStateListener = { ok -> onNetworkResult(ok) }
         checkBan()
+        refreshSiteInfo()
     }
 
     private fun onNetworkResult(ok: Boolean) {
