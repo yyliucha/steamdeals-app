@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,10 +35,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -106,7 +103,6 @@ object HomeFilterParams {
         sort: HomeSort,
         page: Int,
         pageSize: Int,
-        adultEnabled: Boolean = false,
     ): Map<String, String> {
         val (key, value) = filterParam(filter)
         return buildMap {
@@ -116,10 +112,9 @@ object HomeFilterParams {
             put("type", "all")
             put("sort", sortParam(sort))
             put("owned", "include") // CV 批：所有查询不排除已拥有
-            // EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 从「解锁显示」改「筛选」语义——
-            // 开=只看 18R 游戏（adult=badge&rating=adult，卡片带红色 18+ 角标）/ 关=恢复全部（adult=hide）
-            put("adult", if (adultEnabled) "badge" else "hide")
-            if (adultEnabled) put("rating", "adult")
+            // FG（站点 docs/REMOVE-18R-ENTRY.md）：18R 筛选入口已移除——固定 adult=hide
+            // （服务端默认过滤成人内容）；DataStore 的 adultEnabled 字段保留（升级兼容）。
+            put("adult", "hide")
             put(key, value)
         }
     }
@@ -158,7 +153,7 @@ class HomeScreenState(vm: AppViewModel, private val appScope: CoroutineScope) {
             try {
                 val resp = api.games(
                     HomeFilterParams.paramsFor(
-                        filter.value, sort.value, 1, 50, vm.adultEnabled.value,
+                        filter.value, sort.value, 1, 50,
                     ),
                 )
                 if (seq != requestSeq) return@launch // 更晚的请求已接管，丢弃本次结果
@@ -185,7 +180,7 @@ class HomeScreenState(vm: AppViewModel, private val appScope: CoroutineScope) {
             try {
                 val resp = api.games(
                     HomeFilterParams.paramsFor(
-                        filter.value, sort.value, page + 1, 50, vm.adultEnabled.value,
+                        filter.value, sort.value, page + 1, 50,
                     ),
                 )
                 if (seq != requestSeq) return@launch
@@ -244,10 +239,6 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     // DC：公告未读数（0 隐藏角标；首页铃铛 → 公告弹层）
     val unreadAnnouncements by vm.announcementsState.unreadCount.collectAsState()
-    // EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 筛选开关与年龄确认（默认关 + DataStore 记忆；首页/搜索共用）
-    val adultEnabled by vm.adultEnabled.collectAsState()
-    val adultConfirmed by vm.adultConfirmed.collectAsState()
-    var showAdultConfirm by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         if (state.allGames.value.isEmpty()) state.refresh()
@@ -257,10 +248,6 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
     LaunchedEffect(session.isLoggedIn) {
         state.refreshSteamBound()
         // 登录态切换影响 owned 口径（include/only 都随登录变化）→ 重拉当前筛选
-        if (state.allGames.value.isNotEmpty() || state.error.value != null) state.refresh()
-    }
-    // EF：18R 开关变化 → adult/rating 参数变化 → 重拉当前筛选（列表已有数据/曾出错时；首次进入由上面兜底）
-    LaunchedEffect(adultEnabled) {
         if (state.allGames.value.isNotEmpty() || state.error.value != null) state.refresh()
     }
 
@@ -344,26 +331,6 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
                         ),
                     )
                 }
-                // EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R chip 改「筛选」语义——
-                // 开=只看 18R（adult=badge&rating=adult）；关=恢复全部（adult=hide）；
-                // 首次开启弹年龄确认，未确认不切换（EB 批交互保留）
-                FilterChip(
-                    selected = adultEnabled,
-                    onClick = {
-                        if (adultEnabled) {
-                            vm.setAdultEnabled(false)
-                        } else if (adultConfirmed) {
-                            vm.setAdultEnabled(true)
-                        } else {
-                            showAdultConfirm = true
-                        }
-                    },
-                    label = { Text(stringResource(R.string.filter_adult)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
-                        selectedLabelColor = MaterialTheme.colorScheme.primary,
-                    ),
-                )
             }
             // 排序
             Row(
@@ -481,29 +448,5 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
             }
         }
         }
-    }
-
-    // EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：首次开启 18R 筛选弹「确认已满 18 岁」
-    // （确认后 DataStore 记忆不再弹；未确认不切换开关——EB 批交互保留）
-    if (showAdultConfirm) {
-        AlertDialog(
-            onDismissRequest = { showAdultConfirm = false },
-            title = { Text(stringResource(R.string.adult_confirm_title)) },
-            text = { Text(stringResource(R.string.adult_confirm_text)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showAdultConfirm = false
-                    vm.confirmAdult()
-                    vm.setAdultEnabled(true)
-                }) {
-                    Text(stringResource(R.string.confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAdultConfirm = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-        )
     }
 }

@@ -109,23 +109,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope, SharingStarted.Eagerly, "system",
     )
 
-    // ---------- EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 筛选开关 ----------
-    // 默认关闭 + 本地 DataStore 记忆；首页/搜索共用同一开关；开=只看 18R、关=恢复全部；
-    // 首次开启需弹「确认已满 18 岁」。
-    val adultEnabled: StateFlow<Boolean> = session.map { it.adultEnabled }.stateIn(
-        viewModelScope, SharingStarted.Eagerly, false,
-    )
-    val adultConfirmed: StateFlow<Boolean> = session.map { it.adultConfirmed }.stateIn(
-        viewModelScope, SharingStarted.Eagerly, false,
-    )
-
-    fun setAdultEnabled(enabled: Boolean) {
-        viewModelScope.launch { store.setAdultEnabled(enabled) }
-    }
-
-    fun confirmAdult() {
-        viewModelScope.launch { store.setAdultConfirmed() }
-    }
+    // ---------- FG（站点 docs/REMOVE-18R-ENTRY.md）：18R 筛选 UI 已移除 ----------
+    // 首页/搜索的 18R chip 与年龄确认弹窗已删；查询固定 adult=hide。
+    // SessionStore 的 adultEnabled/adultConfirmed 字段保留（DataStore 升级兼容，见 SessionStore.kt），
+    // 本处不再提供投影与开关函数。
 
     // ---------- 启动封禁检查 ----------
     private val _banState = MutableStateFlow<BanState>(BanState.Checking)

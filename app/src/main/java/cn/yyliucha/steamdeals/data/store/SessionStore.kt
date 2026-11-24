@@ -27,7 +27,7 @@ data class SessionData(
     val searchHistory: List<String> = emptyList(),
     val lastUpdateCheckAt: Long = 0,
     val ignoredVersionCode: Int = 0,
-    /** EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 筛选开关与年龄确认（默认关闭；本地 DataStore 记忆）。 */
+    /** FG（站点 docs/REMOVE-18R-ENTRY.md）：18R 筛选字段——UI 入口已移除，字段保留（DataStore 升级兼容）。 */
     val adultEnabled: Boolean = false,
     val adultConfirmed: Boolean = false,
 ) {
@@ -63,7 +63,7 @@ class SessionStore(private val context: Context) {
         val SEARCH_HISTORY = stringPreferencesKey("search_history")
         val LAST_UPDATE_CHECK_AT = longPreferencesKey("last_update_check_at")
         val IGNORED_VERSION_CODE = stringPreferencesKey("ignored_version_code")
-        // EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 筛选开关与年龄确认
+        // FG（站点 docs/REMOVE-18R-ENTRY.md）：18R 筛选键保留（升级兼容，UI 已移除）
         val ADULT_ENABLED = booleanPreferencesKey("adult_enabled")
         val ADULT_CONFIRMED = booleanPreferencesKey("adult_confirmed")
     }
@@ -150,12 +150,12 @@ class SessionStore(private val context: Context) {
         context.sessionDataStore.edit { it[Keys.IGNORED_VERSION_CODE] = code.toString() }
     }
 
-    /** EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 筛选开关（默认关闭；开=只看 18R / 关=恢复全部）。 */
+    /** FG（站点 docs/REMOVE-18R-ENTRY.md）：写入器保留（DataStore 升级兼容），不再有 UI 调用者。 */
     suspend fun setAdultEnabled(enabled: Boolean) {
         context.sessionDataStore.edit { it[Keys.ADULT_ENABLED] = enabled }
     }
 
-    /** EF：首次开启 18R 筛选的年龄确认（确认过不再弹）。 */
+    /** FG：同上——年龄确认字段保留（升级兼容），不再有 UI 调用者。 */
     suspend fun setAdultConfirmed() {
         context.sessionDataStore.edit { it[Keys.ADULT_CONFIRMED] = true }
     }

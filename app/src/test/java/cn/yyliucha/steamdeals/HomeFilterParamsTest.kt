@@ -70,7 +70,9 @@ class HomeFilterParamsTest {
         assertEquals("release", params["sort"])
         assertEquals("1", params["discountOnly"])
         assertEquals("include", params["owned"])
+        // FG（站点 docs/REMOVE-18R-ENTRY.md）：18R 筛选入口已移除——请求固定 adult=hide，不再带 rating
         assertEquals("hide", params["adult"])
+        assertFalse(params.containsKey("rating"))
         assertFalse(params.containsKey("histLowOnly"))
         assertFalse(params.containsKey("unreleased"))
     }
@@ -84,22 +86,21 @@ class HomeFilterParamsTest {
         assertEquals("chip 共 6 个（全部/折扣/史低/免费/未发售/已拥有）", 6, HomeFilter.entries.size)
     }
 
-    // ---- EF（站点 docs/STEAM-SYNC-STATUS-AND-RATING.md §9）：18R 筛选开关 → adult/rating 参数映射 ----
-    // 语义修正：从「解锁显示」（开=adult=badge 混入全列表）改「筛选」（开=adult=badge&rating=adult 只看 18R）。
+    // ---- FG（站点 docs/REMOVE-18R-ENTRY.md）：18R 筛选入口已移除 ----
+    // 反向自检：把 paramsFor 里的 put("adult", "hide") 改回 "badge" → 用例红。
 
     @Test
-    fun `EF 默认关闭时请求带 adult=hide 且不带 rating（恢复全部）`() {
+    fun `FG 首页请求固定 adult=hide 且不带 rating（无 18R 查询入口）`() {
         val params = HomeFilterParams.paramsFor(HomeFilter.ALL, HomeSort.HEAT, page = 1, pageSize = 50)
         assertEquals("hide", params["adult"])
-        assertFalse("关闭时不带 rating 参数（不过滤 18R）", params.containsKey("rating"))
+        assertFalse("不再带 rating 参数（18R 筛选已移除）", params.containsKey("rating"))
     }
 
     @Test
-    fun `EF 开启后请求带 adult=badge 且 rating=adult（只看 18R 并带角标）`() {
-        val params = HomeFilterParams.paramsFor(
-            HomeFilter.ALL, HomeSort.HEAT, page = 1, pageSize = 50, adultEnabled = true,
-        )
-        assertEquals("badge", params["adult"])
-        assertEquals("adult", params["rating"])
+    fun `FG 全部筛选组合都固定 adult=hide（不含成人查询开关）`() {
+        for (f in HomeFilter.entries) {
+            val params = HomeFilterParams.paramsFor(f, HomeSort.HEAT, page = 1, pageSize = 50)
+            assertEquals("筛选 ${f.name} 固定过滤成人内容", "hide", params["adult"])
+        }
     }
 }
