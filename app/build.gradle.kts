@@ -28,8 +28,8 @@ android {
         minSdk = 24
         targetSdk = 36
         // versionCode = major*10000 + minor*100 + patch（覆盖旧 TWA 21800，必须单调递增）
-        versionCode = 22500
-        versionName = "2.25.0"
+        versionCode = 22501
+        versionName = "2.25.1"
 
         buildConfigField("String", "API_BASE_URL", "\"$debugBaseUrl\"")
         buildConfigField("String", "FALLBACK_GH_RELEASE", "\"https://github.com/yyliucha/steamdeals/releases\"")
