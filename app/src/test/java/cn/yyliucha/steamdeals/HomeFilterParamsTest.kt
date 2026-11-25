@@ -70,7 +70,7 @@ class HomeFilterParamsTest {
         assertEquals("release", params["sort"])
         assertEquals("1", params["discountOnly"])
         assertEquals("include", params["owned"])
-        // FI（站点 docs/ADMIN-RATING-FILTER.md）：adult 恒传站点策略（默认 hide=服务端过滤）；未选中 18R 不带 rating
+        // FT（站点 docs/EXPLICIT-RATING.md §2.3）：adult 恒传站点策略（默认 hide=服务端过滤）；未选中色情游戏不带 rating
         assertEquals("hide", params["adult"])
         assertFalse(params.containsKey("rating"))
         assertFalse(params.containsKey("histLowOnly"))
@@ -86,52 +86,52 @@ class HomeFilterParamsTest {
         assertEquals("chip 共 6 个（全部/折扣/史低/免费/未发售/已拥有）", 6, HomeFilter.entries.size)
     }
 
-    // ---- FI（站点 docs/ADMIN-RATING-FILTER.md）：18R 按站点策略控制 ----
-    // hide=无入口、adult=hide 过滤成人（本地开关残留也不出成人）；
-    // badge/show=显示入口（adult=策略值不过滤），选中 18R（adultEnabled）→ rating=adult 只看 18R。
+    // ---- FT（站点 docs/EXPLICIT-RATING.md §2.3）：色情游戏筛选按站点策略控制 ----
+    // hide=无入口、adult=hide 过滤成人内容（宽，本地开关残留也不出成人）；
+    // badge/show=显示入口（adult=策略值不过滤），选中色情游戏（adultEnabled）→ rating=explicit 只看色情游戏。
     // 反向自检：把 paramsFor 里 adult 的站点策略归一改成无条件 "badge" → 以下 hide 用例红。
 
     @Test
-    fun `FI hide 策略固定 adult=hide 且开关残留不带 rating（无入口）`() {
+    fun `FT hide 策略固定 adult=hide 且开关残留不带 rating（无入口）`() {
         for (f in HomeFilter.entries) {
             val params = HomeFilterParams.paramsFor(f, HomeSort.HEAT, page = 1, pageSize = 50, adultEnabled = false, adultDisplay = "hide")
             assertEquals("筛选 ${f.name} 过滤成人内容", "hide", params["adult"])
-            assertFalse("未选中 18R 不带 rating", params.containsKey("rating"))
+            assertFalse("未选中色情游戏不带 rating", params.containsKey("rating"))
         }
     }
 
     @Test
-    fun `FI hide 策略下残留 adultEnabled=true 仍固定 adult=hide 不带 rating`() {
+    fun `FT hide 策略下残留 adultEnabled=true 仍固定 adult=hide 不带 rating`() {
         val params = HomeFilterParams.paramsFor(HomeFilter.ALL, HomeSort.HEAT, page = 1, pageSize = 50, adultEnabled = true, adultDisplay = "hide")
         assertEquals("hide", params["adult"])
         assertFalse("站点 hide 时本地开关不生效", params.containsKey("rating"))
     }
 
     @Test
-    fun `FI badge 策略未选中 adult=badge 不带 rating（显示全部含成人）`() {
+    fun `FT badge 策略未选中 adult=badge 不带 rating（显示全部含成人内容）`() {
         val params = HomeFilterParams.paramsFor(HomeFilter.ALL, HomeSort.HEAT, page = 1, pageSize = 50, adultEnabled = false, adultDisplay = "badge")
         assertEquals("badge", params["adult"])
         assertFalse(params.containsKey("rating"))
     }
 
     @Test
-    fun `FI badge 策略选中 18R 请求 adult=badge&rating=adult（只看 18R）`() {
+    fun `FT badge 策略选中色情游戏请求 adult=badge&rating=explicit（只看色情游戏）`() {
         val params = HomeFilterParams.paramsFor(HomeFilter.ALL, HomeSort.HEAT, page = 1, pageSize = 50, adultEnabled = true, adultDisplay = "badge")
         assertEquals("badge", params["adult"])
-        assertEquals("adult", params["rating"])
+        assertEquals("explicit", params["rating"])
     }
 
     @Test
-    fun `FI show 策略未选中 adult=show 不带 rating（成人按普通展示）`() {
+    fun `FT show 策略未选中 adult=show 不带 rating（成人内容按普通展示）`() {
         val params = HomeFilterParams.paramsFor(HomeFilter.ALL, HomeSort.HEAT, page = 1, pageSize = 50, adultEnabled = false, adultDisplay = "show")
         assertEquals("show", params["adult"])
         assertFalse(params.containsKey("rating"))
     }
 
     @Test
-    fun `FI show 策略选中 18R 请求 adult=show&rating=adult（只看 18R 无角标）`() {
+    fun `FT show 策略选中色情游戏请求 adult=show&rating=explicit（只看色情游戏无角标）`() {
         val params = HomeFilterParams.paramsFor(HomeFilter.ALL, HomeSort.HEAT, page = 1, pageSize = 50, adultEnabled = true, adultDisplay = "show")
         assertEquals("show", params["adult"])
-        assertEquals("adult", params["rating"])
+        assertEquals("explicit", params["rating"])
     }
 }

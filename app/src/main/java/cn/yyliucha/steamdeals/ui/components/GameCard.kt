@@ -139,9 +139,9 @@ fun GameCard(
                     }
                     if (game.app_type == "dlc") Badge("DLC", BrandPurple)
                     if (game.mature_flag) Badge("成熟内容", MaterialTheme.colorScheme.tertiary)
-                    // FI（站点 docs/ADMIN-RATING-FILTER.md）：18R 角标——红色，与「成熟内容」样式区分；
-                    // 仅站点策略 badge 时显示（hide 不返回成人；show 按普通展示无角标）。
-                    if (game.adult_flag && showAdultBadge) Badge("18+", DangerRed)
+                    // FT（站点 docs/EXPLICIT-RATING.md §2.3）：18+ 角标只对色情游戏（严格分级）显示——
+                    // 红色，与「成熟内容」样式区分；仅站点策略 badge 时显示（hide 不返回成人内容；show 按普通展示无角标）。
+                    if (game.explicit_flag && showAdultBadge) Badge("18+", DangerRed)
                 }
 
                 Row(

@@ -128,15 +128,15 @@ class SearchScreenState(private val vm: AppViewModel) {
                         put("type", "all")
                         // CV 批（docs/APP-SEARCH-OWNED.md）：搜索不排除已拥有
                         put("owned", "include")
-                        // FI（站点 docs/ADMIN-RATING-FILTER.md）：adult 恒传站点策略——
-                        // hide=服务端过滤成人；badge/show=不过滤；选中 18R（本地开关）→ rating=adult。
+                        // FT（站点 docs/EXPLICIT-RATING.md §2.3）：adult 恒传站点策略——
+                        // hide=服务端过滤成人内容（宽）；badge/show=不过滤；选中色情游戏（本地开关）→ rating=explicit。
                         val display = if (vm.siteAdultDisplay.value == "badge" || vm.siteAdultDisplay.value == "show") {
                             vm.siteAdultDisplay.value
                         } else {
                             "hide"
                         }
                         put("adult", display)
-                        if (vm.adultEnabled.value && display != "hide") put("rating", "adult")
+                        if (vm.adultEnabled.value && display != "hide") put("rating", "explicit")
                     },
                 )
                 results = if (append) (results + resp.games).distinctBy { it.id } else resp.games
@@ -205,7 +205,7 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
     // 搜索历史（本地 DataStore）
     val sessionData by vm.session.collectAsState()
     val historyList = sessionData.searchHistory
-    // FI（站点 docs/ADMIN-RATING-FILTER.md）：18R 筛选开关/年龄确认/站点策略（与首页共用 AppViewModel 状态）
+    // FT（站点 docs/EXPLICIT-RATING.md §2.3）：色情游戏筛选开关/年龄确认/站点策略（与首页共用 AppViewModel 状态）
     val adultEnabled by vm.adultEnabled.collectAsState()
     val adultConfirmed by vm.adultConfirmed.collectAsState()
     val adultDisplay by vm.siteAdultDisplay.collectAsState()
@@ -215,7 +215,7 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
         vm.refreshSiteInfo() // 进入页面刷新站点策略
         focusRequester.requestFocus()
     }
-    // FI：18R 开关变化 → 已提交搜索词时带新 adult/rating 参数重搜当前词
+    // FT：色情游戏开关变化 → 已提交搜索词时带新 adult/rating 参数重搜当前词
     LaunchedEffect(adultEnabled) {
         if (state.submitted.isNotEmpty()) state.doSearch(state.submitted)
     }
@@ -264,8 +264,8 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
             }
         }
 
-        // FI（站点 docs/ADMIN-RATING-FILTER.md）：搜索页 18R chip 按站点策略显隐
-        // （与首页同一开关；开=只看 18R，关=恢复全部；首次开启弹年龄确认）
+        // FT（站点 docs/EXPLICIT-RATING.md §2.3）：搜索页色情游戏 chip 按站点策略显隐
+        // （与首页同一开关；开=只看色情游戏，关=恢复全部；首次开启弹年龄确认）
         if (adultDisplay != "hide") {
             Row(
                 modifier = Modifier
@@ -454,7 +454,7 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
         }
     }
 
-    // FI（站点 docs/ADMIN-RATING-FILTER.md）：首次开启 18R 筛选弹「确认已满 18 岁」
+    // FT（站点 docs/EXPLICIT-RATING.md §2.3）：首次开启色情游戏筛选弹「确认已满 18 岁」
     // （确认后 DataStore 记忆不再弹，未确认不切换开关——EB 批交互保留）
     if (showAdultConfirm) {
         AlertDialog(

@@ -117,12 +117,12 @@ object HomeFilterParams {
             put("type", "all")
             put("sort", sortParam(sort))
             put("owned", "include") // CV 批：所有查询不排除已拥有
-            // FI（站点 docs/ADMIN-RATING-FILTER.md）：adult 恒传站点策略——
-            // hide=无入口、服务端过滤成人；badge/show=显示入口（不过滤，展示方式由前端角标决定）；
-            // 选中 18R（本地开关 adultEnabled，仅控制选中态）→ 加 rating=adult 只看 18R。
+            // FT（站点 docs/EXPLICIT-RATING.md §2.3）：adult 恒传站点策略——
+            // hide=无入口、服务端过滤成人内容（宽）；badge/show=显示入口（不过滤，展示方式由前端角标决定）；
+            // 选中色情游戏（本地开关 adultEnabled，仅控制选中态）→ 加 rating=explicit 只看色情游戏。
             val display = if (adultDisplay == "badge" || adultDisplay == "show") adultDisplay else "hide"
             put("adult", display)
-            if (adultEnabled && display != "hide") put("rating", "adult")
+            if (adultEnabled && display != "hide") put("rating", "explicit")
             put(key, value)
         }
     }
@@ -247,7 +247,7 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     // DC：公告未读数（0 隐藏角标；首页铃铛 → 公告弹层）
     val unreadAnnouncements by vm.announcementsState.unreadCount.collectAsState()
-    // FI（站点 docs/ADMIN-RATING-FILTER.md）：18R 筛选开关/年龄确认/站点策略（首页与搜索共用）
+    // FT（站点 docs/EXPLICIT-RATING.md §2.3）：色情游戏筛选开关/年龄确认/站点策略（首页与搜索共用）
     val adultEnabled by vm.adultEnabled.collectAsState()
     val adultConfirmed by vm.adultConfirmed.collectAsState()
     val adultDisplay by vm.siteAdultDisplay.collectAsState()
@@ -264,7 +264,7 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
         // 登录态切换影响 owned 口径（include/only 都随登录变化）→ 重拉当前筛选
         if (state.allGames.value.isNotEmpty() || state.error.value != null) state.refresh()
     }
-    // FI：18R 开关变化 → adult/rating 参数变化 → 重拉当前筛选（列表已有数据/曾出错时；首次进入由上面兜底）
+    // FT：色情游戏开关变化 → adult/rating 参数变化 → 重拉当前筛选（列表已有数据/曾出错时；首次进入由上面兜底）
     LaunchedEffect(adultEnabled) {
         if (state.allGames.value.isNotEmpty() || state.error.value != null) state.refresh()
     }
@@ -354,8 +354,8 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
                         ),
                     )
                 }
-                // FI（站点 docs/ADMIN-RATING-FILTER.md）：18R chip——按站点策略显隐（hide=无入口；
-                // badge/show=显示）；开=只看 18R（adult=badge|show&rating=adult）；首次开启弹年龄确认。
+                // FT（站点 docs/EXPLICIT-RATING.md §2.3）：色情游戏 chip——按站点策略显隐（hide=无入口；
+                // badge/show=显示）；开=只看色情游戏（adult=badge|show&rating=explicit）；首次开启弹年龄确认。
                 if (adultDisplay != "hide") {
                     FilterChip(
                         selected = adultEnabled,
@@ -495,7 +495,7 @@ fun HomeScreen(vm: AppViewModel, navController: NavHostController) {
         }
     }
 
-    // FI（站点 docs/ADMIN-RATING-FILTER.md）：首次开启 18R 筛选弹「确认已满 18 岁」
+    // FT（站点 docs/EXPLICIT-RATING.md §2.3）：首次开启色情游戏筛选弹「确认已满 18 岁」
     // （确认后 DataStore 记忆不再弹；未确认不切换开关——EB 批交互保留）
     if (showAdultConfirm) {
         AlertDialog(

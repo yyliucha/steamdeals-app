@@ -209,6 +209,8 @@ data class GameDto(
     val steam_status: String? = null,
     val required_age: Int? = null,
     val adult_flag: Boolean = false,
+    // FT（站点 docs/EXPLICIT-RATING.md §2.1）：explicit（严格，descriptor 4/AO）——18+ 角标与筛选用
+    val explicit_flag: Boolean = false,
     val mature_flag: Boolean = false,
     val current_low: Long? = null,
     val currency: String? = null,
