@@ -1,13 +1,13 @@
 {
-  "sha256": "A24AB699AE273119376BE4E079B42C55BD6CEABB93CDFBFCA47BEC75352F13F1",
   "minVersionCode": 21600,
-  "apkPath": "/app/steamdeals-2.24.1.apk",
+  "releasedAt": "2026-11-25",
+  "size": 2046260,
+  "sha256": "7caaabf4d3120809a2eeeb9a12afc56bf3ec33286d99c6f6c19653cf34d29b35",
+  "apkPath": "/app/steamdeals-2.25.1.apk",
+  "version": "2.25.1",
   "notes": [
-    "18R 筛选语义修正（EF）：「18R」chip 从「解锁显示」改「筛选」——开=只看 18R（adult=badge&rating=adult，卡片红色 18+ 角标）、关=恢复全部（adult=hide）；配合站点 cc=us 元数据回填，18R 游戏可被正常筛出",
-    "公告角标已读修复（EG）：点开详情/全部已读后角标正确递减/归零且不再回跳（服务端 Bearer readIds + 本地陈旧快照守卫），下拉刷新/重进首页/重启 App 均不复现"
+    "FO 搜索框回车即搜：搜索框软键盘回车直接提交（与「搜索」按钮同一逻辑）",
+    "FT 色情游戏分级：18R chip 改「色情游戏」，rating=explicit 仅 descriptor 4/ESRB AO，18+ 角标仅 explicit（联动站点 v2.30.0）"
   ],
-  "versionCode": 22401,
-  "releasedAt": "2026-11-20",
-  "size": 2029840,
-  "version": "2.24.1"
+  "versionCode": 22501
 }
