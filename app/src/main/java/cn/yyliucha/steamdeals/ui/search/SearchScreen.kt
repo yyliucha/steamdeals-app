@@ -3,6 +3,8 @@ package cn.yyliucha.steamdeals.ui.search
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,6 +49,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
@@ -222,6 +225,15 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
         if (state.submitted.isNotEmpty()) state.doSearch(state.submitted)
     }
 
+    // FO（站点 docs/TODO.md §FO）：搜索按钮与软键盘 IME「搜索」共用同一提交逻辑——
+    // trim 非空 → 隐藏键盘 → submitKeyword；空关键词回车无动作。
+    val submitFromInput = {
+        if (state.keyword.trim().isNotEmpty()) {
+            keyboard?.hide()
+            state.submitKeyword(state.keyword)
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -238,17 +250,15 @@ fun SearchScreen(vm: AppViewModel, navController: NavHostController) {
                 placeholder = { Text(stringResource(R.string.search_placeholder)) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
+                // FO：IME 动作设为「搜索」，回车即提交（与「搜索」按钮同一逻辑；历史页/结果页共此输入框）
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { submitFromInput() }),
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(focusRequester),
             )
             TextButton(
-                onClick = {
-                    if (state.keyword.trim().isNotEmpty()) {
-                        keyboard?.hide()
-                        state.submitKeyword(state.keyword)
-                    }
-                },
+                onClick = { submitFromInput() },
             ) {
                 Text(stringResource(R.string.tab_search))
             }
