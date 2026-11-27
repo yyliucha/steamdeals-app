@@ -93,7 +93,9 @@ fun MeScreen(vm: AppViewModel, navController: NavHostController) {
     }
 
     val user = session.user
-    val themeMode = session.theme
+    // GD（站点 TODO GD）：主题行与弹窗选中态跟 vm.themeMode（内存态优先）走，不再等 DataStore 快照——
+    // 写盘慢/失败时选项高亮也要立刻跟随用户选择，否则仍像「点了没反应」。
+    val themeMode by vm.themeMode.collectAsState()
     // DC：公告未读数（「我的 → 公告」入口展示，0 不显示）
     val unreadAnnouncements by vm.announcementsState.unreadCount.collectAsState()
 

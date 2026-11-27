@@ -121,9 +121,13 @@ class SessionStore(private val context: Context) {
         }
     }
 
-    suspend fun setTheme(theme: String) {
+    /** GD：主题写盘——异常不再静默（更不会崩到 main），记 logcat 并返回是否写入成功；
+     *  ViewModel 侧保留内存态兜底，写失败时本次会话仍按用户选择显示。 */
+    suspend fun setTheme(theme: String): Boolean = runCatching {
         context.sessionDataStore.edit { it[Keys.THEME] = theme }
-    }
+    }.onFailure {
+        android.util.Log.w("SteamDeals", "setTheme failed: $it")
+    }.isSuccess
 
     suspend fun setReadAnnouncementIds(ids: List<Long>) {
         context.sessionDataStore.edit { it[Keys.READ_IDS] = ids.joinToString(",") }

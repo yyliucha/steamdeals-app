@@ -16,6 +16,7 @@ import cn.yyliucha.steamdeals.di.ServiceLocator
 import cn.yyliucha.steamdeals.ui.home.HomeScreenState
 import cn.yyliucha.steamdeals.ui.profile.ProfileEditState
 import cn.yyliucha.steamdeals.ui.search.SearchScreenState
+import cn.yyliucha.steamdeals.ui.theme.ThemeModeState
 import cn.yyliucha.steamdeals.ui.update.UpdateManager
 import cn.yyliucha.steamdeals.ui.wishlist.WishlistScreenState
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -105,9 +106,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val wishlistState = WishlistScreenState(this, viewModelScope)
     val profileState = ProfileEditState(this, viewModelScope)
 
-    val themeMode: StateFlow<String> = session.map { it.theme }.stateIn(
-        viewModelScope, SharingStarted.Eagerly, "system",
+    // GD（站点 TODO GD）：主题切换立即生效——内存态优先 + DataStore 写入异常兜底
+    // （状态机与单测见 ThemeModeState；写盘失败只记日志，本次会话仍按用户选择显示）。
+    private val themeModeState = ThemeModeState(
+        scope = viewModelScope,
+        persistedTheme = session.map { it.theme },
+        writeTheme = { mode -> store.setTheme(mode) },
+        onWriteError = { e -> android.util.Log.w("SteamDeals", "setTheme failed: $e") },
     )
+
+    /** 主题（system / light / dark）：用户本次选择 > DataStore 持久化值。 */
+    val themeMode: StateFlow<String> = themeModeState.themeMode
 
     // ---------- FI（站点 docs/ADMIN-RATING-FILTER.md）：18R 筛选按站点策略控制 ----------
     // 本地开关 adultEnabled/adultConfirmed（DataStore 记忆）只控制筛选选中态；
@@ -244,8 +253,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---------- 主题（登录用户同步 /api/prefs；游客仅本地跟随系统） ----------
     fun setTheme(mode: String) {
+        // GD：先内存态 → 界面立即换色（不等 DataStore 往返，写盘崩/卡都不影响本次切换）；
+        // 落盘与登录用户的服务端同步随后异步进行，失败只记日志。
+        themeModeState.setTheme(mode)
         viewModelScope.launch {
-            store.setTheme(mode)
             if (session.value.isLoggedIn) {
                 runCatching {
                     api.savePrefs(PrefsDto(theme = if (mode == "system") null else mode))
